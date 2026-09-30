@@ -167,10 +167,11 @@
     async function lanzarSorteoSequencial() {
         if (!accesoPartida) return alert("Introduce el PIN para acceder a la partida.");
         if (partidaPendiente) return alert("Registra primero el equipo ganador de la partida actual.");
-        if (seleccionados.length < 2 || seleccionados.length % 2 !== 0) return alert("Selecciona un número par de jugadores.");
+        if (seleccionados.length < 2) return alert("Selecciona al menos 2 jugadores.");
         const shuffle = [...seleccionados].sort(() => Math.random() - 0.5);
-        const blueSide = shuffle.slice(0, shuffle.length / 2);
-        const redSide = shuffle.slice(shuffle.length / 2);
+        const mitad = Math.floor(shuffle.length / 2);
+        const blueSide = shuffle.slice(0, mitad);
+        const redSide = shuffle.slice(mitad);
         equiposActuales = { blue: [...blueSide], red: [...redSide] };
         mvpElegido = { blue: false, red: false };
         partidaPendiente = false;
@@ -178,12 +179,13 @@
         document.getElementById('slots-blue').innerHTML = "";
         document.getElementById('slots-red').innerHTML = "";
 
-        for(let i = 0; i < blueSide.length; i++) {
-            await Promise.all([
-                animarPareja('slots-blue', blueSide[i]),
-                animarPareja('slots-red', redSide[i])
-            ]);
-            if(i < blueSide.length - 1) await new Promise(r => setTimeout(r, 1500));
+        const rondas = Math.max(blueSide.length, redSide.length);
+        for(let i = 0; i < rondas; i++) {
+            const animaciones = [];
+            if (blueSide[i]) animaciones.push(animarPareja('slots-blue', blueSide[i]));
+            if (redSide[i]) animaciones.push(animarPareja('slots-red', redSide[i]));
+            await Promise.all(animaciones);
+            if(i < rondas - 1) await new Promise(r => setTimeout(r, 1500));
         }
 
         seleccionados.forEach(name => {
