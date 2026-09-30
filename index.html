@@ -26,6 +26,9 @@
         .slot.visible { opacity: 1; }
         .slot img { width: 60px; height: 60px; border: 1px solid var(--gold-dark); }
         .slot.active { border: 1px solid var(--gold); background: rgba(200,170,110,0.1); }
+        .mvp-button { margin-left: auto; padding: 8px 12px; font-size: 0.75em; }
+        .mvp-button.selected { background: var(--gold); color: black; }
+        .mvp-button:disabled { opacity: 0.4; cursor: not-allowed; }
         #editor-panel { display: none; background: #050d17; border: 2px solid var(--gold); padding: 20px; margin-top: 20px; }
         .editor-input { background: black; color: white; border: 1px solid var(--gold-dark); padding: 5px; width: 60px; }
         button { background: var(--gold-dark); color: white; border: 1px solid var(--gold); padding: 15px 30px; cursor: pointer; text-transform: uppercase; font-weight: bold; }
@@ -63,6 +66,7 @@
     <button style="width: 100%; font-size: 1.5em;" onclick="lanzarSorteoSequencial()">GENERAR EQUIPOS Y CAMPEONES</button>
     <div id="winner-panel" style="display: none; margin-top: 25px; padding: 20px; border: 2px solid var(--gold); text-align: center; background: rgba(200,170,110,0.08);">
         <h2 style="margin-top: 0;">EQUIPO GANADOR</h2>
+        <div style="margin-bottom: 15px; color: #f0e6d2;">Selecciona un MVP de cada equipo y después el equipo ganador.</div>
         <button onclick="registrarVictoria('blue')" style="margin: 5px;">EQUIPO AZUL</button>
         <button onclick="registrarVictoria('red')" style="margin: 5px; background: var(--red);">EQUIPO ROJO</button>
     </div>
@@ -107,6 +111,7 @@
     let accesoPartida = false;
     let equiposActuales = { blue: [], red: [] };
     let partidaPendiente = false;
+    let mvpElegido = { blue: false, red: false };
 
     async function init() {
         try {
@@ -133,7 +138,7 @@
         const ranking = Object.keys(db).map(name => ({
             name, ...db[name], pts: (db[name].w * 10) + (db[name].m * 5),
             winRate: db[name].games > 0 ? (db[name].w / db[name].games) * 100 : 0
-        })).sort((a,b) => b.winRate - a.winRate);
+        })).sort((a,b) => b.pts - a.pts);
         document.getElementById('lista-ranking').innerHTML = ranking.map((j, i) => `
             <tr><td>${i+1}</td><td>${j.name}</td><td>${j.pts}</td><td>${j.w}</td><td>${j.m}</td><td>${j.winRate.toFixed(1)}%</td></tr>
         `).join('');
@@ -167,6 +172,7 @@
         const blueSide = shuffle.slice(0, shuffle.length / 2);
         const redSide = shuffle.slice(shuffle.length / 2);
         equiposActuales = { blue: [...blueSide], red: [...redSide] };
+        mvpElegido = { blue: false, red: false };
         partidaPendiente = false;
         document.getElementById('winner-panel').style.display = 'none';
         document.getElementById('slots-blue').innerHTML = "";
@@ -188,8 +194,27 @@
         actualizarInterfaz();
     }
 
+    function registrarMVP(equipo, name, button) {
+        if (!partidaPendiente || mvpElegido[equipo]) return;
+        if (!equiposActuales[equipo].includes(name)) return;
+
+        db[name].m++;
+        mvpElegido[equipo] = true;
+        button.classList.add('selected');
+        button.innerText = 'MVP ✓';
+
+        document.querySelectorAll('#slots-' + equipo + ' .mvp-button').forEach(btn => {
+            if (btn !== button) btn.disabled = true;
+        });
+
+        actualizarInterfaz();
+    }
+
     function registrarVictoria(equipo) {
         if (!partidaPendiente) return;
+        if (!mvpElegido.blue || !mvpElegido.red) {
+            return alert("Selecciona un MVP para cada equipo antes de registrar el ganador.");
+        }
         equiposActuales[equipo].forEach(name => {
             db[name].w++;
         });
@@ -204,7 +229,8 @@
             const container = document.getElementById(containerId);
             const slot = document.createElement('div');
             slot.className = 'slot visible';
-            slot.innerHTML = `<img src="" style="filter:grayscale(1)"> <div><b>${name}</b><br><small class="champ-name">...</small></div>`;
+            const equipo = containerId.replace("slots-", "");
+            slot.innerHTML = `<img src="" style="filter:grayscale(1)"> <div><b>${name}</b><br><small class="champ-name">...</small></div><button class="mvp-button" onclick="registrarMVP('${equipo}', '${name}', this)">MVP</button>`;
             container.appendChild(slot);
             const img = slot.querySelector('img');
             const txt = slot.querySelector('.champ-name');
