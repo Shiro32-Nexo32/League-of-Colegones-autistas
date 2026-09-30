@@ -45,6 +45,8 @@
         <thead><tr><th>Rango</th><th>Invocador</th><th>Puntos</th><th>Victorias</th><th>MVP</th><th>Win Rate</th></tr></thead>
         <tbody id="lista-ranking"></tbody>
     </table>
+    <div style="text-align: right; margin-top: 15px;"><button onclick="desbloquearPartida()">DESBLOQUEAR PARTIDA</button></div>
+    <div id="zona-protegida" style="display: none;">
     <div style="text-align: right;"><button onclick="abrirEditor()">Modo Editor</button></div>
     <div id="editor-panel">
         <h2>EDITOR DE INVOCADORES</h2>
@@ -59,6 +61,11 @@
     <h2>DRAFT DE PARTIDA</h2>
     <div id="grid-jugadores" class="selector-grid"></div>
     <button style="width: 100%; font-size: 1.5em;" onclick="lanzarSorteoSequencial()">GENERAR EQUIPOS Y CAMPEONES</button>
+    <div id="winner-panel" style="display: none; margin-top: 25px; padding: 20px; border: 2px solid var(--gold); text-align: center; background: rgba(200,170,110,0.08);">
+        <h2 style="margin-top: 0;">EQUIPO GANADOR</h2>
+        <button onclick="registrarVictoria('blue')" style="margin: 5px;">EQUIPO AZUL</button>
+        <button onclick="registrarVictoria('red')" style="margin: 5px; background: var(--red);">EQUIPO ROJO</button>
+    </div>
     <div class="teams-wrapper" style="margin-top: 30px;">
         <div class="team-box blue-side">
             <h3 style="color: var(--blue-bright)">EQUIPO AZUL</h3>
@@ -68,6 +75,7 @@
             <h3 style="color: var(--red)">EQUIPO ROJO</h3>
             <div id="slots-red"></div>
         </div>
+    </div>
     </div>
 </div>
 <script>
@@ -96,6 +104,9 @@
     });
 
     let seleccionados = [];
+    let accesoPartida = false;
+    let equiposActuales = { blue: [], red: [] };
+    let partidaPendiente = false;
 
     async function init() {
         try {
@@ -135,17 +146,29 @@
         `).join('');
     }
 
+    function desbloquearPartida() {
+        if (prompt("PIN DE SEGURIDAD:") !== PIN_SECRET) return alert("ACCESO DENEGADO");
+        accesoPartida = true;
+        document.getElementById('zona-protegida').style.display = 'block';
+    }
+
     function togglePlayer(name) {
+        if (!accesoPartida) return alert("Introduce el PIN para acceder a la partida.");
         if (seleccionados.includes(name)) seleccionados = seleccionados.filter(n => n !== name);
         else if (seleccionados.length < 10) seleccionados.push(name);
         renderSelector();
     }
 
     async function lanzarSorteoSequencial() {
+        if (!accesoPartida) return alert("Introduce el PIN para acceder a la partida.");
+        if (partidaPendiente) return alert("Registra primero el equipo ganador de la partida actual.");
         if (seleccionados.length < 2 || seleccionados.length % 2 !== 0) return alert("Selecciona un número par de jugadores.");
         const shuffle = [...seleccionados].sort(() => Math.random() - 0.5);
         const blueSide = shuffle.slice(0, shuffle.length / 2);
         const redSide = shuffle.slice(shuffle.length / 2);
+        equiposActuales = { blue: [...blueSide], red: [...redSide] };
+        partidaPendiente = false;
+        document.getElementById('winner-panel').style.display = 'none';
         document.getElementById('slots-blue').innerHTML = "";
         document.getElementById('slots-red').innerHTML = "";
 
@@ -160,7 +183,20 @@
         seleccionados.forEach(name => {
             db[name].games++;
         });
+        partidaPendiente = true;
+        document.getElementById('winner-panel').style.display = 'block';
         actualizarInterfaz();
+    }
+
+    function registrarVictoria(equipo) {
+        if (!partidaPendiente) return;
+        equiposActuales[equipo].forEach(name => {
+            db[name].w++;
+        });
+        partidaPendiente = false;
+        document.getElementById('winner-panel').style.display = 'none';
+        actualizarInterfaz();
+        alert("Victoria registrada para el " + (equipo === 'blue' ? "EQUIPO AZUL." : "EQUIPO ROJO."));
     }
 
     function animarPareja(containerId, name) {
