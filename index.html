@@ -42,7 +42,7 @@
     <div id="test-info" style="font-size: 0.8em; opacity: 0.5; text-align: center;">CONECTANDO CON SERVIDORES DE RIOT...</div>
     <h1>RANKING</h1>
     <table class="ranking-table">
-        <thead><tr><th>Rango</th><th>Invocador</th><th>Puntos</th><th>Victorias</th><th>MVP</th></tr></thead>
+        <thead><tr><th>Rango</th><th>Invocador</th><th>Puntos</th><th>Victorias</th><th>MVP</th><th>Win Rate</th></tr></thead>
         <tbody id="lista-ranking"></tbody>
     </table>
     <div style="text-align: right;"><button onclick="abrirEditor()">Modo Editor</button></div>
@@ -86,10 +86,14 @@
     }
 
     let db = JSON.parse(localStorage.getItem('lol_pure_db')) || {
-        "Shiro": { w: 0, m: 0 }, "Maku": { w: 0, m: 0 }, "gordi": { w: 0, m: 0 },
-        "Lobo": { w: 0, m: 0 }, "Ivet": { w: 0, m: 0 }, "Lidia": { w: 0, m: 0 },
-        "Porreta": { w: 0, m: 0 }, "Iraideta": { w: 0, m: 0 }, "AlexVivaEta": { w: 0, m: 0 }
+        "Shiro": { w: 0, m: 0, games: 0 }, "Maku": { w: 0, m: 0, games: 0 }, "gordi": { w: 0, m: 0, games: 0 },
+        "Lobo": { w: 0, m: 0, games: 0 }, "Ivet": { w: 0, m: 0, games: 0 }, "Lidia": { w: 0, m: 0, games: 0 },
+        "Porreta": { w: 0, m: 0, games: 0 }, "Iraideta": { w: 0, m: 0, games: 0 }, "AlexVivaEta": { w: 0, m: 0, games: 0 }
     };
+
+    Object.keys(db).forEach(name => {
+        if (db[name].games === undefined) db[name].games = 0;
+    });
 
     let seleccionados = [];
 
@@ -116,10 +120,11 @@
 
     function renderRanking() {
         const ranking = Object.keys(db).map(name => ({
-            name, ...db[name], pts: (db[name].w * 10) + (db[name].m * 5)
-        })).sort((a,b) => b.pts - a.pts);
+            name, ...db[name], pts: (db[name].w * 10) + (db[name].m * 5),
+            winRate: db[name].games > 0 ? (db[name].w / db[name].games) * 100 : 0
+        })).sort((a,b) => b.winRate - a.winRate);
         document.getElementById('lista-ranking').innerHTML = ranking.map((j, i) => `
-            <tr><td>${i+1}</td><td>${j.name}</td><td>${j.pts}</td><td>${j.w}</td><td>${j.m}</td></tr>
+            <tr><td>${i+1}</td><td>${j.name}</td><td>${j.pts}</td><td>${j.w}</td><td>${j.m}</td><td>${j.winRate.toFixed(1)}%</td></tr>
         `).join('');
     }
 
@@ -151,6 +156,11 @@
             ]);
             if(i < blueSide.length - 1) await new Promise(r => setTimeout(r, 1500));
         }
+
+        seleccionados.forEach(name => {
+            db[name].games++;
+        });
+        actualizarInterfaz();
     }
 
     function animarPareja(containerId, name) {
@@ -201,7 +211,7 @@
 
     function nuevoJugador() {
         const n = prompt("Nombre del Invocador:");
-        if(n) { db[n] = { w: 0, m: 0 }; renderEditor(); }
+        if(n) { db[n] = { w: 0, m: 0, games: 0 }; renderEditor(); }
     }
 
     function cerrarEditor() {
