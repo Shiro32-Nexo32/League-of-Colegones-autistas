@@ -49,6 +49,10 @@
         <tbody id="lista-ranking"></tbody>
     </table>
     <div style="text-align: right; margin-top: 15px;"><button onclick="desbloquearPartida()">DESBLOQUEAR PARTIDA</button></div>
+    <div id="pin-panel" style="display: none; margin-top: 15px; padding: 20px; border: 1px solid var(--gold-dark); text-align: center; background: rgba(0,0,0,0.3);">
+        <input id="pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="PIN" style="background: black; color: white; border: 1px solid var(--gold-dark); padding: 12px; width: 120px; text-align: center; font-size: 1.2em;">
+        <button onclick="comprobarPIN()" style="margin-left: 10px;">ENTRAR</button>
+    </div>
     <div id="zona-protegida" style="display: none;">
     <div style="text-align: right;"><button onclick="abrirEditor()">Modo Editor</button></div>
     <div id="editor-panel">
@@ -152,8 +156,17 @@
     }
 
     function desbloquearPartida() {
-        if (prompt("PIN DE SEGURIDAD:") !== PIN_SECRET) return alert("ACCESO DENEGADO");
+        if (accesoPartida) return;
+        document.getElementById('pin-panel').style.display = 'block';
+        document.getElementById('pin-input').value = '';
+        document.getElementById('pin-input').focus();
+    }
+
+    function comprobarPIN() {
+        const pin = document.getElementById('pin-input').value;
+        if (pin !== PIN_SECRET) return alert("ACCESO DENEGADO");
         accesoPartida = true;
+        document.getElementById('pin-panel').style.display = 'none';
         document.getElementById('zona-protegida').style.display = 'block';
     }
 
