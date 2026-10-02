@@ -157,16 +157,17 @@
         if (db[name].level === undefined) db[name].level = NIVELES_INICIALES[name] ?? 3;
     });
 
-    const AJUSTE_50_ALEX_IRAIDA = 'ajuste_50_alexgoraeta_iraideta_v1';
+    const AJUSTE_50_ALEX_IRAIDA = 'ajuste_50_alexgoraeta_iraideta_v2';
 
     if (!localStorage.getItem(AJUSTE_50_ALEX_IRAIDA)) {
         ["AlexGoraEta", "iraidETA"].forEach(name => {
-            if (db[name] && db[name].games === 0 && db[name].w === 0) {
+            if (db[name]) {
                 db[name].games = 2;
                 db[name].w = 1;
             }
         });
         localStorage.setItem(AJUSTE_50_ALEX_IRAIDA, '1');
+        localStorage.setItem('lol_pure_db_v3', JSON.stringify(db));
     }
 
     function nivelJugador(name) {
