@@ -112,19 +112,17 @@
     };
 
     const equivalenciasNombres = {
-        "Maku": "Macu",
-        "Iraideta": "Iraida",
-        "Porreta": "Borreta",
-        "AlexVivaEta": "Alex Goreta"
+        "Macu": "Maku",
+        "Iraida": "Iraideta",
+        "Borreta": "Porreta",
+        "Alex Goreta": "AlexVivaEta",
+        "Adame el Omega": "adamelomega57",
+        "Kai": "kayETA"
     };
 
     Object.entries(equivalenciasNombres).forEach(([antiguo, nuevo]) => {
         if (db[antiguo] && !db[nuevo]) db[nuevo] = db[antiguo];
-        delete db[antiguo];
-    });
-
-    ["Adame el Omega", "Kai"].forEach(name => {
-        if (!db[name]) db[name] = { w: 0, m: 0, games: 0 };
+        if (antiguo !== nuevo) delete db[antiguo];
     });
 
     Object.keys(db).forEach(name => {
@@ -133,16 +131,16 @@
 
     const NIVEL_JUGADOR = {
         "Shiro": 5,
-        "Macu": 5,
+        "Maku": 5,
         "Ivet": 4.5,
         "Lobo": 4,
-        "Adame el Omega": 3,
+        "adamelomega57": 3,
         "Lidia": 3,
-        "Alex Goreta": 2,
-        "Borreta": 2,
-        "Iraida": 1,
-        "Gordi": 1,
-        "Kai": 1
+        "AlexVivaEta": 2,
+        "Porreta": 2,
+        "Iraideta": 1.5,
+        "gordi": 1,
+        "kayETA": 1
     };
 
     function nivelJugador(name) {
@@ -175,7 +173,7 @@
         const combinaciones = crearCombinaciones(jugadores, cantidadPequeno);
         const fuerzaTotal = jugadores.reduce((total, name) => total + nivelJugador(name), 0);
         const objetivos = combinaciones.map(pequeno => {
-            const fuerzaPequeno = pequeño.reduce((total, name) => total + nivelJugador(name), 0);
+            const fuerzaPequeno = pequeno.reduce((total, name) => total + nivelJugador(name), 0);
             const fuerzaGrande = fuerzaTotal - fuerzaPequeno;
             const mediaPequeno = fuerzaPequeno / cantidadPequeno;
             const mediaGrande = fuerzaGrande / cantidadGrande;
