@@ -111,9 +111,96 @@
         "Porreta": { w: 0, m: 0, games: 0 }, "Iraideta": { w: 0, m: 0, games: 0 }, "AlexVivaEta": { w: 0, m: 0, games: 0 }
     };
 
+    const equivalenciasNombres = {
+        "Maku": "Macu",
+        "Iraideta": "Iraida",
+        "Porreta": "Borreta",
+        "AlexVivaEta": "Alex Goreta"
+    };
+
+    Object.entries(equivalenciasNombres).forEach(([antiguo, nuevo]) => {
+        if (db[antiguo] && !db[nuevo]) db[nuevo] = db[antiguo];
+        delete db[antiguo];
+    });
+
+    ["Adame el Omega", "Kai"].forEach(name => {
+        if (!db[name]) db[name] = { w: 0, m: 0, games: 0 };
+    });
+
     Object.keys(db).forEach(name => {
         if (db[name].games === undefined) db[name].games = 0;
     });
+
+    const NIVEL_JUGADOR = {
+        "Shiro": 5,
+        "Macu": 5,
+        "Ivet": 4.5,
+        "Lobo": 4,
+        "Adame el Omega": 3,
+        "Lidia": 3,
+        "Alex Goreta": 2,
+        "Borreta": 2,
+        "Iraida": 1,
+        "Gordi": 1,
+        "Kai": 1
+    };
+
+    function nivelJugador(name) {
+        return NIVEL_JUGADOR[name] ?? 3;
+    }
+
+    function crearCombinaciones(array, cantidad) {
+        const resultado = [];
+
+        function recorrer(inicio, elegidos) {
+            if (elegidos.length === cantidad) {
+                resultado.push([...elegidos]);
+                return;
+            }
+
+            for (let i = inicio; i < array.length; i++) {
+                elegidos.push(array[i]);
+                recorrer(i + 1, elegidos);
+                elegidos.pop();
+            }
+        }
+
+        recorrer(0, []);
+        return resultado;
+    }
+
+    function prepararEquiposImpares(jugadores) {
+        const cantidadPequeno = Math.floor(jugadores.length / 2);
+        const cantidadGrande = Math.ceil(jugadores.length / 2);
+        const combinaciones = crearCombinaciones(jugadores, cantidadPequeno);
+        const fuerzaTotal = jugadores.reduce((total, name) => total + nivelJugador(name), 0);
+        const objetivos = combinaciones.map(pequeno => {
+            const fuerzaPequeno = pequeño.reduce((total, name) => total + nivelJugador(name), 0);
+            const fuerzaGrande = fuerzaTotal - fuerzaPequeno;
+            const mediaPequeno = fuerzaPequeno / cantidadPequeno;
+            const mediaGrande = fuerzaGrande / cantidadGrande;
+            return {
+                pequeno,
+                diferencia: mediaPequeno - mediaGrande
+            };
+        });
+
+        const validas = objetivos.filter(opcion => opcion.diferencia >= 0);
+        const candidatas = validas.length > 0
+            ? validas
+            : objetivos.sort((a, b) => b.diferencia - a.diferencia).slice(0, 1);
+
+        const mejorDiferencia = Math.min(...candidatas.map(opcion => opcion.diferencia));
+        const mejores = candidatas.filter(opcion => Math.abs(opcion.diferencia - mejorDiferencia) < 0.0001);
+        const elegida = mejores[Math.floor(Math.random() * mejores.length)].pequeno;
+        const grande = jugadores.filter(name => !elegida.includes(name));
+
+        if (Math.random() < 0.5) {
+            return { blue: elegida, red: grande };
+        }
+
+        return { blue: grande, red: elegida };
+    }
 
     let seleccionados = [];
     let accesoPartida = false;
@@ -186,9 +273,18 @@
         if (partidaPendiente) return alert("Registra primero el equipo ganador de la partida actual.");
         if (seleccionados.length < 2) return alert("Selecciona al menos 2 jugadores.");
         const shuffle = [...seleccionados].sort(() => Math.random() - 0.5);
-        const mitad = Math.floor(shuffle.length / 2);
-        const blueSide = shuffle.slice(0, mitad);
-        const redSide = shuffle.slice(mitad);
+        let blueSide;
+        let redSide;
+
+        if (shuffle.length % 2 === 0) {
+            const mitad = shuffle.length / 2;
+            blueSide = shuffle.slice(0, mitad);
+            redSide = shuffle.slice(mitad);
+        } else {
+            const equipos = prepararEquiposImpares(shuffle);
+            blueSide = equipos.blue;
+            redSide = equipos.red;
+        }
         equiposActuales = { blue: [...blueSide], red: [...redSide] };
         mvpElegido = { blue: false, red: false };
         partidaPendiente = false;
