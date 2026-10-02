@@ -86,6 +86,7 @@
             <tbody id="tabla-editor"></tbody>
         </table>
         <button onclick="nuevoJugador()">+ Nuevo Jugador</button>
+        <button onclick="reiniciarHistorial()" style="background: #7b1111;">Reiniciar Historial</button>
         <button onclick="cerrarEditor()" style="background: #444;">Guardar Cambios</button>
     </div>
     <hr style="border:1px solid var(--gold-dark); margin: 40px 0;">
@@ -534,6 +535,13 @@
 
         actualizarInterfaz();
         renderEditor();
+    }
+
+    function reiniciarHistorial() {
+        if (!confirm("¿Seguro que quieres borrar las últimas 20 partidas del historial? Esta acción no modifica las estadísticas de los jugadores.")) return;
+        historialPartidas = [];
+        localStorage.removeItem('lol_match_history');
+        renderHistorial();
     }
 
     function nuevoJugador() {
