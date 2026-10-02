@@ -113,7 +113,7 @@
         "Ivet": { w: 0, m: 0, games: 0 },
         "Lidia": { w: 0, m: 0, games: 0 },
         "Porreta": { w: 0, m: 0, games: 0 },
-        "Iraideta": { w: 0, m: 0, games: 0 },
+        "Iraida": { w: 0, m: 0, games: 0 },
         "AlexVivaEta": { w: 0, m: 0, games: 0 }
     };
 
@@ -127,7 +127,7 @@
     ];
 
     PERFILES_CREADOS_POR_SISTEMA.forEach(name => {
-        if (db[name] && name !== "Iraideta") delete db[name];
+        if (db[name]) delete db[name];
     });
 
     const NIVELES_INICIALES = {
