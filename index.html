@@ -33,10 +33,27 @@
         .editor-input { background: black; color: white; border: 1px solid var(--gold-dark); padding: 5px; width: 60px; }
         button { background: var(--gold-dark); color: white; border: 1px solid var(--gold); padding: 15px 30px; cursor: pointer; text-transform: uppercase; font-weight: bold; }
         button:hover { background: var(--gold); color: black; }
+        #history-modal {
+            display: none; position: fixed; z-index: 1000; inset: 0;
+            background: rgba(0,0,0,0.85); padding: 20px; box-sizing: border-box;
+        }
+        #history-content {
+            max-width: 900px; max-height: 85vh; overflow-y: auto; margin: 5vh auto;
+            background: var(--blue-medium); border: 2px solid var(--gold);
+            padding: 25px; box-shadow: 0 0 40px black;
+        }
+        .history-match {
+            border: 1px solid var(--gold-dark); padding: 18px; margin-bottom: 15px;
+            background: rgba(0,0,0,0.3);
+        }
+        .history-match h3 { margin-top: 0; color: white; }
+        .history-team { margin: 8px 0; color: #f0e6d2; }
+        .history-winner { color: var(--gold); font-weight: bold; }
         @media (max-width: 700px) {
             body { padding: 8px; }
             .container { padding: 20px; }
             .teams-wrapper { grid-template-columns: 1fr; }
+            #history-content { margin: 2vh auto; max-height: 92vh; padding: 15px; }
         }
     </style>
 </head>
@@ -48,6 +65,9 @@
         <thead><tr><th>Rango</th><th>Invocador</th><th>Puntos</th><th>Victorias</th><th>MVP</th><th>Win Rate</th></tr></thead>
         <tbody id="lista-ranking"></tbody>
     </table>
+    <div style="text-align: left; margin-top: 10px; margin-bottom: 20px;">
+        <button onclick="abrirHistorial()">ÚLTIMAS 20 PARTIDAS</button>
+    </div>
     <div style="text-align: right; margin-top: 15px;"><button onclick="desbloquearPartida()">DESBLOQUEAR PARTIDA</button></div>
     <div id="pin-panel" style="display: none; margin-top: 15px; padding: 20px; border: 1px solid var(--gold-dark); text-align: center; background: rgba(0,0,0,0.3);">
         <input id="pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="PIN" style="background: black; color: white; border: 1px solid var(--gold-dark); padding: 12px; width: 120px; text-align: center; font-size: 1.2em;">
@@ -90,6 +110,17 @@
     </div>
     </div>
 </div>
+
+<div id="history-modal" onclick="cerrarHistorial(event)">
+    <div id="history-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:15px;">
+            <h2 style="margin:0;">HISTORIAL DE PARTIDAS</h2>
+            <button onclick="cerrarHistorial()">CERRAR</button>
+        </div>
+        <div id="history-list" style="margin-top:20px;"></div>
+    </div>
+</div>
+
 <script>
     const PIN_SECRET = String.fromCharCode(51, 54, 53, 52);
     let CHAMPIONS = [];
@@ -227,6 +258,9 @@
     let equiposActuales = { blue: [], red: [] };
     let partidaPendiente = false;
     let mvpElegido = { blue: false, red: false };
+    let mvpActual = { blue: null, red: null };
+    let historialPartidas = JSON.parse(localStorage.getItem('lol_match_history')) || [];
+    historialPartidas = historialPartidas.slice(0, 20);
 
     async function init() {
         try {
@@ -246,7 +280,9 @@
     function actualizarInterfaz() {
         renderRanking();
         renderSelector();
+        renderHistorial();
         localStorage.setItem('lol_pure_db_v3', JSON.stringify(db));
+        localStorage.setItem('lol_match_history', JSON.stringify(historialPartidas));
     }
 
     function renderRanking() {
@@ -307,6 +343,7 @@
         }
         equiposActuales = { blue: [...blueSide], red: [...redSide] };
         mvpElegido = { blue: false, red: false };
+        mvpActual = { blue: null, red: null };
         partidaPendiente = false;
         document.getElementById('winner-panel').style.display = 'none';
         document.getElementById('slots-blue').innerHTML = "";
@@ -335,6 +372,7 @@
 
         db[name].m++;
         mvpElegido[equipo] = true;
+        mvpActual[equipo] = name;
         button.classList.add('selected');
         button.innerText = 'MVP ✓';
 
@@ -353,10 +391,70 @@
         equiposActuales[equipo].forEach(name => {
             db[name].w++;
         });
+
+        const partida = {
+            fecha: new Date().toLocaleString('es-ES'),
+            blue: [...equiposActuales.blue],
+            red: [...equiposActuales.red],
+            ganador: equipo,
+            perdedor: equipo === 'blue' ? 'red' : 'blue',
+            mvpBlue: mvpActual.blue,
+            mvpRed: mvpActual.red
+        };
+
+        historialPartidas.unshift(partida);
+        historialPartidas = historialPartidas.slice(0, 20);
+
         partidaPendiente = false;
         document.getElementById('winner-panel').style.display = 'none';
         actualizarInterfaz();
         alert("Victoria registrada para el " + (equipo === 'blue' ? "EQUIPO AZUL." : "EQUIPO ROJO."));
+    }
+
+
+    function abrirHistorial() {
+        renderHistorial();
+        document.getElementById('history-modal').style.display = 'block';
+    }
+
+    function cerrarHistorial(event) {
+        if (!event || event.target.id === 'history-modal' || event.currentTarget?.tagName === 'BUTTON') {
+            document.getElementById('history-modal').style.display = 'none';
+        }
+    }
+
+    function renderHistorial() {
+        const container = document.getElementById('history-list');
+        if (!container) return;
+
+        if (historialPartidas.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#f0e6d2;">Todavía no hay partidas registradas.</p>';
+            return;
+        }
+
+        container.innerHTML = historialPartidas.map((partida, index) => {
+            const nombreGanador = partida.ganador === 'blue' ? 'EQUIPO AZUL' : 'EQUIPO ROJO';
+            const nombrePerdedor = partida.perdedor === 'blue' ? 'EQUIPO AZUL' : 'EQUIPO ROJO';
+
+            return `
+                <div class="history-match">
+                    <h3>PARTIDA #${historialPartidas.length - index} · ${partida.fecha}</h3>
+                    <div class="history-team">
+                        <strong style="color:var(--blue-bright)">EQUIPO AZUL</strong>:
+                        ${partida.blue.join(', ')}
+                        <br> MVP: <strong>${partida.mvpBlue || 'Sin registrar'}</strong>
+                    </div>
+                    <div class="history-team">
+                        <strong style="color:var(--red)">EQUIPO ROJO</strong>:
+                        ${partida.red.join(', ')}
+                        <br> MVP: <strong>${partida.mvpRed || 'Sin registrar'}</strong>
+                    </div>
+                    <div class="history-winner">
+                        GANADOR: ${nombreGanador} · PERDEDOR: ${nombrePerdedor}
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     function animarPareja(containerId, name) {
