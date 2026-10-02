@@ -157,10 +157,10 @@
         if (db[name].level === undefined) db[name].level = NIVELES_INICIALES[name] ?? 3;
     });
 
-    const AJUSTE_50_ALEX_IRAIDA = 'ajuste_50_alexgoraeta_iraideta_v2';
+    const AJUSTE_50_ALEX_IRAIDA = 'ajuste_50_alexgoraeta_iraideta_v3';
 
     if (!localStorage.getItem(AJUSTE_50_ALEX_IRAIDA)) {
-        ["AlexGoraEta", "iraidETA"].forEach(name => {
+        ["AlexGoraEta", "IraidETA", "iraidETA"].forEach(name => {
             if (db[name]) {
                 db[name].games = 2;
                 db[name].w = 1;
