@@ -401,9 +401,31 @@
                 <td><input class="editor-input" type="number" value="${db[name].w}" onchange="db['${name}'].w=Math.max(0, parseInt(this.value) || 0)"></td>
                 <td><input class="editor-input" type="number" value="${db[name].m}" onchange="db['${name}'].m=Math.max(0, parseInt(this.value) || 0)"></td>
                 <td><input class="editor-input" type="number" min="0" max="5" step="0.5" value="${db[name].level}" onchange="db['${name}'].level=Math.max(0, Math.min(5, parseFloat(this.value) || 0))"></td>
-                <td><button onclick="if(confirm('¿Eliminar?')){delete db['${name}']; renderEditor();}" style="background:red; padding:5px;">X</button></td>
+                <td>
+                    <button onclick="editarNombre(this.closest('tr').querySelector('td').innerText)" style="padding:5px; margin-right:5px;">✎</button>
+                    <button onclick="if(confirm('¿Eliminar?')){delete db['${name}']; renderEditor();}" style="background:red; padding:5px;">X</button>
+                </td>
             </tr>
         `).join('');
+    }
+
+    function editarNombre(nombreActual) {
+        const nuevoNombre = prompt("Nuevo nombre del Invocador:", nombreActual);
+        if (nuevoNombre === null) return;
+
+        const nombreLimpio = nuevoNombre.trim();
+        if (!nombreLimpio) return alert("El nombre no puede estar vacío.");
+        if (nombreLimpio === nombreActual) return;
+
+        if (db[nombreLimpio]) {
+            return alert("Ya existe un jugador con ese nombre.");
+        }
+
+        db[nombreLimpio] = db[nombreActual];
+        delete db[nombreActual];
+
+        actualizarInterfaz();
+        renderEditor();
     }
 
     function nuevoJugador() {
