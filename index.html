@@ -62,7 +62,7 @@
     <div id="editor-panel">
         <h2>EDITOR DE INVOCADORES</h2>
         <table class="ranking-table">
-            <thead><tr><th>Nombre</th><th>Partidas</th><th>W</th><th>M</th><th>Nivel</th><th>Acción</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>W</th><th>M</th><th>Nivel</th><th>Acción</th></tr></thead>
             <tbody id="tabla-editor"></tbody>
         </table>
         <button onclick="nuevoJugador()">+ Nuevo Jugador</button>
@@ -156,6 +156,15 @@
         if (db[name].w === undefined) db[name].w = 0;
         if (db[name].level === undefined) db[name].level = NIVELES_INICIALES[name] ?? 3;
     });
+
+    const AJUSTE_PARTIDAS_INICIALES = 'ajuste_partidas_alexgoraeta_iraideta_v1';
+
+    if (!localStorage.getItem(AJUSTE_PARTIDAS_INICIALES)) {
+        if (db["AlexGoraEta"]) db["AlexGoraEta"].games = 2;
+        if (db["IraidETA"]) db["IraidETA"].games = 2;
+        localStorage.setItem(AJUSTE_PARTIDAS_INICIALES, '1');
+        localStorage.setItem('lol_pure_db_v3', JSON.stringify(db));
+    }
 
     function nivelJugador(name) {
         const nivel = Number(db[name]?.level);
@@ -398,7 +407,6 @@
         document.getElementById('tabla-editor').innerHTML = Object.keys(db).map(name => `
             <tr>
                 <td>${name}</td>
-                <td><input class="editor-input" type="number" min="0" value="${db[name].games}" onchange="db['${name}'].games=Math.max(0, parseInt(this.value) || 0)"></td>
                 <td><input class="editor-input" type="number" value="${db[name].w}" onchange="db['${name}'].w=Math.max(0, parseInt(this.value) || 0)"></td>
                 <td><input class="editor-input" type="number" value="${db[name].m}" onchange="db['${name}'].m=Math.max(0, parseInt(this.value) || 0)"></td>
                 <td><input class="editor-input" type="number" min="0" max="5" step="0.5" value="${db[name].level}" onchange="db['${name}'].level=Math.max(0, Math.min(5, parseFloat(this.value) || 0))"></td>
