@@ -157,6 +157,18 @@
         if (db[name].level === undefined) db[name].level = NIVELES_INICIALES[name] ?? 3;
     });
 
+    const AJUSTE_50_ALEX_IRAIDA = 'ajuste_50_alexgoraeta_iraideta_v1';
+
+    if (!localStorage.getItem(AJUSTE_50_ALEX_IRAIDA)) {
+        ["AlexGoraEta", "iraidETA"].forEach(name => {
+            if (db[name] && db[name].games === 0 && db[name].w === 0) {
+                db[name].games = 2;
+                db[name].w = 1;
+            }
+        });
+        localStorage.setItem(AJUSTE_50_ALEX_IRAIDA, '1');
+    }
+
     function nivelJugador(name) {
         const nivel = Number(db[name]?.level);
         return Number.isFinite(nivel) ? Math.max(0, Math.min(5, nivel)) : 3;
