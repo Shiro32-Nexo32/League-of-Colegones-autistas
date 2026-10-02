@@ -47,7 +47,11 @@
             background: rgba(0,0,0,0.3);
         }
         .history-match h3 { margin-top: 0; color: white; }
-        .history-team { margin: 8px 0; color: #f0e6d2; }
+        .history-team { margin: 12px 0; color: #f0e6d2; }
+        .history-players { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 10px; }
+        .history-player { display: flex; align-items: center; gap: 12px; padding: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(200,170,110,0.2); }
+        .history-player img { width: 50px; height: 50px; border: 1px solid var(--gold-dark); }
+        .history-player small { display: block; opacity: 0.75; margin-top: 3px; }
         .history-winner { color: var(--gold); font-weight: bold; }
         @media (max-width: 700px) {
             body { padding: 8px; }
@@ -260,6 +264,7 @@
     let partidaPendiente = false;
     let mvpElegido = { blue: false, red: false };
     let mvpActual = { blue: null, red: null };
+    let campeonesActuales = { blue: {}, red: {} };
     let historialPartidas = JSON.parse(localStorage.getItem('lol_match_history')) || [];
     historialPartidas = historialPartidas.slice(0, 20);
 
@@ -345,6 +350,7 @@
         equiposActuales = { blue: [...blueSide], red: [...redSide] };
         mvpElegido = { blue: false, red: false };
         mvpActual = { blue: null, red: null };
+        campeonesActuales = { blue: {}, red: {} };
         partidaPendiente = false;
         document.getElementById('winner-panel').style.display = 'none';
         document.getElementById('slots-blue').innerHTML = "";
@@ -386,9 +392,6 @@
 
     function registrarVictoria(equipo) {
         if (!partidaPendiente) return;
-        if (!mvpElegido.blue || !mvpElegido.red) {
-            return alert("Selecciona un MVP para cada equipo antes de registrar el ganador.");
-        }
         equiposActuales[equipo].forEach(name => {
             db[name].w++;
         });
@@ -397,6 +400,16 @@
             fecha: new Date().toLocaleString('es-ES'),
             blue: [...equiposActuales.blue],
             red: [...equiposActuales.red],
+            blueData: equiposActuales.blue.map(name => ({
+                name,
+                champion: campeonesActuales.blue[name]?.name || null,
+                image: campeonesActuales.blue[name]?.image || null
+            })),
+            redData: equiposActuales.red.map(name => ({
+                name,
+                champion: campeonesActuales.red[name]?.name || null,
+                image: campeonesActuales.red[name]?.image || null
+            })),
             ganador: equipo,
             perdedor: equipo === 'blue' ? 'red' : 'blue',
             mvpBlue: mvpActual.blue,
@@ -437,18 +450,31 @@
             const nombreGanador = partida.ganador === 'blue' ? 'EQUIPO AZUL' : 'EQUIPO ROJO';
             const nombrePerdedor = partida.perdedor === 'blue' ? 'EQUIPO AZUL' : 'EQUIPO ROJO';
 
+            const blueData = partida.blueData || partida.blue.map(name => ({ name, champion: null, image: null }));
+            const redData = partida.redData || partida.red.map(name => ({ name, champion: null, image: null }));
+
+            const renderHistoryPlayers = (players) => players.map(player => `
+                <div class="history-player">
+                    ${player.image ? `<img src="${player.image}" alt="${player.champion || ''}">` : ''}
+                    <div>
+                        <strong>${player.name}</strong>
+                        <small>${player.champion || 'Campeón no registrado'}</small>
+                    </div>
+                </div>
+            `).join('');
+
             return `
                 <div class="history-match">
                     <h3>PARTIDA #${historialPartidas.length - index} · ${partida.fecha}</h3>
                     <div class="history-team">
-                        <strong style="color:var(--blue-bright)">EQUIPO AZUL</strong>:
-                        ${partida.blue.join(', ')}
-                        <br> MVP: <strong>${partida.mvpBlue || 'Sin registrar'}</strong>
+                        <strong style="color:var(--blue-bright)">EQUIPO AZUL</strong>
+                        <div class="history-players">${renderHistoryPlayers(blueData)}</div>
+                        <div style="margin-top:8px;">MVP: <strong>${partida.mvpBlue || 'Sin registrar'}</strong></div>
                     </div>
                     <div class="history-team">
-                        <strong style="color:var(--red)">EQUIPO ROJO</strong>:
-                        ${partida.red.join(', ')}
-                        <br> MVP: <strong>${partida.mvpRed || 'Sin registrar'}</strong>
+                        <strong style="color:var(--red)">EQUIPO ROJO</strong>
+                        <div class="history-players">${renderHistoryPlayers(redData)}</div>
+                        <div style="margin-top:8px;">MVP: <strong>${partida.mvpRed || 'Sin registrar'}</strong></div>
                     </div>
                     <div class="history-winner">
                         GANADOR: ${nombreGanador} · PERDEDOR: ${nombrePerdedor}
@@ -481,6 +507,10 @@
                     clearInterval(interval);
                     img.style.filter = "none";
                     slot.classList.add('active');
+                    campeonesActuales[equipo][name] = {
+                        name: c.name,
+                        image: img.src
+                    };
                     playBoom();
                     resolve();
                 }
