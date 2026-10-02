@@ -157,14 +157,6 @@
         if (db[name].level === undefined) db[name].level = NIVELES_INICIALES[name] ?? 3;
     });
 
-    ["AlexGoraEta", "IraidETA"].forEach(name => {
-        if (db[name] && db[name].w === 1 && (!db[name].games || db[name].games === 0)) {
-            db[name].games = 2;
-        }
-    });
-
-    localStorage.setItem('lol_pure_db_v3', JSON.stringify(db));
-
     function nivelJugador(name) {
         const nivel = Number(db[name]?.level);
         return Number.isFinite(nivel) ? Math.max(0, Math.min(5, nivel)) : 3;
