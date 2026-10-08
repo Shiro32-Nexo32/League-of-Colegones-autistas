@@ -305,12 +305,17 @@
         });
 
         const validas = objetivos.filter(opcion => opcion.diferencia >= 0);
-        const candidatas = validas.length > 0
-            ? validas
-            : objetivos.sort((a, b) => b.diferencia - a.diferencia).slice(0, 1);
+        const mejorDiferencia = validas.length > 0
+            ? Math.min(...validas.map(opcion => opcion.diferencia))
+            : Math.max(...objetivos.map(opcion => opcion.diferencia));
 
-        const mejorDiferencia = Math.min(...candidatas.map(opcion => opcion.diferencia));
-        const mejores = candidatas.filter(opcion => Math.abs(opcion.diferencia - mejorDiferencia) < 0.0001);
+        // Mantén todas las combinaciones óptimas. En el caso de fallback
+        // puede haber varias combinaciones igual de equilibradas, y todas
+        // deben poder salir en el sorteo.
+        const mejores = objetivos.filter(opcion =>
+            (validas.length === 0 || opcion.diferencia >= 0) &&
+            Math.abs(opcion.diferencia - mejorDiferencia) < 0.0001
+        );
         const elegida = mejores[Math.floor(Math.random() * mejores.length)].pequeno;
         const grande = jugadores.filter(name => !elegida.includes(name));
 
