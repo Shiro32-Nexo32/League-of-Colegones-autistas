@@ -149,7 +149,9 @@
     function leerJSONLocalStorage(clave, valorPredeterminado) {
         try {
             const contenido = localStorage.getItem(clave);
-            return contenido === null ? valorPredeterminado : JSON.parse(contenido);
+            if (contenido === null) return valorPredeterminado;
+            const datos = JSON.parse(contenido);
+            return datos === null ? valorPredeterminado : datos;
         } catch (error) {
             console.warn('No se pudo leer el almacenamiento local de ' + clave + '.', error);
             return valorPredeterminado;
@@ -206,9 +208,13 @@
         "Iraideta"
     ];
 
-    PERFILES_CREADOS_POR_SISTEMA.forEach(name => {
-        if (db[name]) delete db[name];
-    });
+    const VERSION_LIMPIEZA_PERFILES = 'limpieza_perfiles_sistema_v1';
+    if (!localStorage.getItem(VERSION_LIMPIEZA_PERFILES)) {
+        PERFILES_CREADOS_POR_SISTEMA.forEach(name => {
+            if (db[name]) delete db[name];
+        });
+        localStorage.setItem(VERSION_LIMPIEZA_PERFILES, '1');
+    }
 
     const NIVELES_INICIALES = {
         "Shiro": 5,
