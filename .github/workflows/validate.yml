@@ -21,3 +21,5 @@ jobs:
           node-version: 22
       - name: Validate inline JavaScript syntax
         run: node scripts/validate-inline-js.mjs
+      - name: Test odd-team randomization and tie-breaking
+        run: node scripts/test-team-randomization.mjs
