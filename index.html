@@ -18,6 +18,8 @@
         .selector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 30px 0; }
         .player-card { border: 1px solid var(--gold-dark); padding: 15px; text-align: center; cursor: pointer; background: rgba(0,0,0,0.3); text-transform: uppercase; }
         .player-card.selected { background: var(--gold); color: black; box-shadow: 0 0 15px var(--gold); }
+        .player-card.locked { opacity: 0.55; cursor: not-allowed; }
+        button:disabled { opacity: 0.45; cursor: not-allowed; }
         .teams-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
         .team-box { border: 1px solid var(--gold-dark); min-height: 300px; padding: 20px; background: rgba(0,0,0,0.4); }
         .blue-side { border-top: 5px solid var(--blue-bright); }
@@ -90,13 +92,16 @@
             <tbody id="tabla-editor"></tbody>
         </table>
         <button onclick="nuevoJugador()">+ Nuevo Jugador</button>
+        <button onclick="exportarDatos()">Exportar copia</button>
+        <button onclick="document.getElementById('backup-input').click()">Importar copia</button>
+        <input id="backup-input" type="file" accept="application/json,.json" style="display:none" onchange="importarDatos(event)">
         <button onclick="reiniciarHistorial()" style="background: #7b1111;">Reiniciar Historial</button>
         <button onclick="cerrarEditor()" style="background: #444;">Guardar Cambios</button>
     </div>
     <hr style="border:1px solid var(--gold-dark); margin: 40px 0;">
     <h2>DRAFT DE PARTIDA</h2>
     <div id="grid-jugadores" class="selector-grid"></div>
-    <button style="width: 100%; font-size: 1.5em;" onclick="lanzarSorteoSequencial()">GENERAR EQUIPOS Y CAMPEONES</button>
+    <button id="generar-equipos-button" style="width: 100%; font-size: 1.5em;" onclick="lanzarSorteoSequencial()">GENERAR EQUIPOS Y CAMPEONES</button>
     <div id="winner-panel" style="display: none; margin-top: 25px; padding: 20px; border: 2px solid var(--gold); text-align: center; background: rgba(200,170,110,0.08);">
         <h2 style="margin-top: 0;">EQUIPO GANADOR</h2>
         <div style="margin-bottom: 15px; color: #f0e6d2;">Selecciona un MVP de cada equipo y después el equipo ganador.</div>
@@ -141,7 +146,46 @@
         a.volume = 0.4; a.play();
     }
 
-    let db = JSON.parse(localStorage.getItem('lol_pure_db_v3')) || {
+    function leerJSONLocalStorage(clave, valorPredeterminado) {
+        try {
+            const contenido = localStorage.getItem(clave);
+            return contenido === null ? valorPredeterminado : JSON.parse(contenido);
+        } catch (error) {
+            console.warn('No se pudo leer el almacenamiento local de ' + clave + '.', error);
+            return valorPredeterminado;
+        }
+    }
+
+    function escaparHTML(valor) {
+        const entidades = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        return String(valor ?? '').replace(/[&<>"']/g, caracter => entidades[caracter]);
+    }
+
+    function urlImagenCampeonSegura(valor) {
+        try {
+            const url = new URL(String(valor));
+            if (
+                url.protocol === 'https:' &&
+                url.hostname === 'ddragon.leagueoflegends.com' &&
+                /^\/cdn\/[\w.-]+\/img\/champion\/[\w.-]+\.png$/.test(url.pathname)
+            ) return url.href;
+        } catch (error) {
+            // Las imágenes inválidas no se muestran en el historial.
+        }
+        return null;
+    }
+
+    function enteroNoNegativo(valor) {
+        const numero = Number.parseInt(valor, 10);
+        return Number.isFinite(numero) ? Math.max(0, numero) : 0;
+    }
+
+    function nivelSeguro(valor) {
+        const numero = Number(valor);
+        return Number.isFinite(numero) ? Math.max(0, Math.min(5, numero)) : 3;
+    }
+
+    let db = leerJSONLocalStorage('lol_pure_db_v3', {
         "Shiro": { w: 0, m: 0, games: 0 },
         "Maku": { w: 0, m: 0, games: 0 },
         "gordi": { w: 0, m: 0, games: 0 },
@@ -151,7 +195,7 @@
         "Porreta": { w: 0, m: 0, games: 0 },
         "Iraida": { w: 0, m: 0, games: 0 },
         "AlexVivaEta": { w: 0, m: 0, games: 0 }
-    };
+    });
 
     const PERFILES_CREADOS_POR_SISTEMA = [
         "Macu",
@@ -205,6 +249,15 @@
     function nivelJugador(name) {
         const nivel = Number(db[name]?.level);
         return Number.isFinite(nivel) ? Math.max(0, Math.min(5, nivel)) : 3;
+    }
+
+    function barajar(array) {
+        const resultado = [...array];
+        for (let i = resultado.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [resultado[i], resultado[j]] = [resultado[j], resultado[i]];
+        }
+        return resultado;
     }
 
     function crearCombinaciones(array, cantidad) {
@@ -262,24 +315,36 @@
     let accesoPartida = false;
     let equiposActuales = { blue: [], red: [] };
     let partidaPendiente = false;
+    let sorteoEnCurso = false;
     let mvpElegido = { blue: false, red: false };
     let mvpActual = { blue: null, red: null };
     let campeonesActuales = { blue: {}, red: {} };
-    let historialPartidas = JSON.parse(localStorage.getItem('lol_match_history')) || [];
-    historialPartidas = historialPartidas.slice(0, 20);
+    let historialPartidas = leerJSONLocalStorage('lol_match_history', []);
+    if (!Array.isArray(historialPartidas)) historialPartidas = [];
+    historialPartidas = historialPartidas
+        .filter(partida => partida && typeof partida === 'object' && Array.isArray(partida.blue) && Array.isArray(partida.red))
+        .slice(0, 20);
 
     async function init() {
+        const estado = document.getElementById('test-info');
         try {
             const vRes = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+            if (!vRes.ok) throw new Error('No se pudo obtener la versión de Data Dragon.');
             const vData = await vRes.json();
+            if (!Array.isArray(vData) || !vData[0]) throw new Error('La respuesta de versiones no es válida.');
             VERSION = vData[0];
+
             const cRes = await fetch(`https://ddragon.leagueoflegends.com/cdn/${VERSION}/data/es_ES/champion.json`);
+            if (!cRes.ok) throw new Error('No se pudo descargar la lista de campeones.');
             const cData = await cRes.json();
-            CHAMPIONS = Object.values(cData.data);
-            document.getElementById('test-info').innerText = `ASSETS CARGADOS | VER: ${VERSION} | CHAMPIONS: ${CHAMPIONS.length}`;
+            CHAMPIONS = Object.values(cData.data || {});
+            if (CHAMPIONS.length === 0) throw new Error('La lista de campeones está vacía.');
+            estado.innerText = `ASSETS CARGADOS | VER: ${VERSION} | CHAMPIONS: ${CHAMPIONS.length}`;
+        } catch (error) {
+            estado.innerText = 'SIN CONEXIÓN CON DATA DRAGON | Ranking e historial locales disponibles';
+            console.error('No se pudieron cargar los campeones.', error);
+        } finally {
             actualizarInterfaz();
-        } catch (e) {
-            document.getElementById('test-info').innerText = "ERROR AL CARGAR CAMPEONES";
         }
     }
 
@@ -297,14 +362,19 @@
             winRate: db[name].games > 0 ? (db[name].w / db[name].games) * 100 : 0
         })).sort((a,b) => b.pts - a.pts);
         document.getElementById('lista-ranking').innerHTML = ranking.map((j, i) => `
-            <tr><td>${i+1}</td><td>${j.name}</td><td>${j.pts}</td><td>${j.w}</td><td>${j.m}</td><td>${j.winRate.toFixed(1)}%</td></tr>
+            <tr><td>${i+1}</td><td>${escaparHTML(j.name)}</td><td>${j.pts}</td><td>${j.w}</td><td>${j.m}</td><td>${j.winRate.toFixed(1)}%</td></tr>
         `).join('');
     }
 
     function renderSelector() {
         const grid = document.getElementById('grid-jugadores');
+        const bloqueado = sorteoEnCurso || partidaPendiente;
         grid.innerHTML = Object.keys(db).sort().map(name => `
-            <div class="player-card ${seleccionados.includes(name) ? 'selected' : ''}" onclick="togglePlayer('${name}')">${name}</div>
+            <div class="player-card ${seleccionados.includes(name) ? 'selected' : ''} ${bloqueado ? 'locked' : ''}"
+                 data-player="${escaparHTML(name)}" role="button" tabindex="0"
+                 aria-pressed="${seleccionados.includes(name)}" aria-disabled="${bloqueado}">
+                ${escaparHTML(name)}
+            </div>
         `).join('');
     }
 
@@ -325,54 +395,78 @@
 
     function togglePlayer(name) {
         if (!accesoPartida) return alert("Introduce el PIN para acceder a la partida.");
+        if (sorteoEnCurso || partidaPendiente) return alert("Termina de registrar la partida actual antes de cambiar jugadores.");
+        if (!db[name]) return;
         if (seleccionados.includes(name)) seleccionados = seleccionados.filter(n => n !== name);
         else if (seleccionados.length < 10) seleccionados.push(name);
+        else return alert("Puedes seleccionar como máximo 10 jugadores.");
         renderSelector();
     }
 
     async function lanzarSorteoSequencial() {
         if (!accesoPartida) return alert("Introduce el PIN para acceder a la partida.");
+        if (sorteoEnCurso) return alert("El sorteo ya está en curso.");
         if (partidaPendiente) return alert("Registra primero el equipo ganador de la partida actual.");
+        if (!CHAMPIONS.length) return alert("No se han podido cargar los campeones. Comprueba la conexión y recarga la página.");
         if (seleccionados.length < 2) return alert("Selecciona al menos 2 jugadores.");
-        const shuffle = [...seleccionados].sort(() => Math.random() - 0.5);
-        let blueSide;
-        let redSide;
 
-        if (shuffle.length % 2 === 0) {
-            const mitad = shuffle.length / 2;
-            blueSide = shuffle.slice(0, mitad);
-            redSide = shuffle.slice(mitad);
-        } else {
-            const equipos = prepararEquiposImpares(shuffle);
-            blueSide = equipos.blue;
-            redSide = equipos.red;
+        sorteoEnCurso = true;
+        const botonSorteo = document.getElementById('generar-equipos-button');
+        botonSorteo.disabled = true;
+        renderSelector();
+
+        try {
+            const shuffle = barajar(seleccionados);
+            let blueSide;
+            let redSide;
+
+            if (shuffle.length % 2 === 0) {
+                const mitad = shuffle.length / 2;
+                blueSide = shuffle.slice(0, mitad);
+                redSide = shuffle.slice(mitad);
+            } else {
+                const equipos = prepararEquiposImpares(shuffle);
+                blueSide = equipos.blue;
+                redSide = equipos.red;
+            }
+
+            equiposActuales = { blue: [...blueSide], red: [...redSide] };
+            mvpElegido = { blue: false, red: false };
+            mvpActual = { blue: null, red: null };
+            campeonesActuales = { blue: {}, red: {} };
+            partidaPendiente = false;
+            document.getElementById('winner-panel').style.display = 'none';
+            document.getElementById('slots-blue').innerHTML = "";
+            document.getElementById('slots-red').innerHTML = "";
+
+            const rondas = Math.max(blueSide.length, redSide.length);
+            for (let i = 0; i < rondas; i++) {
+                const animaciones = [];
+                if (blueSide[i]) animaciones.push(animarPareja('slots-blue', blueSide[i]));
+                if (redSide[i]) animaciones.push(animarPareja('slots-red', redSide[i]));
+                await Promise.all(animaciones);
+                if (i < rondas - 1) await new Promise(r => setTimeout(r, 1500));
+            }
+
+            document.querySelectorAll('.mvp-button').forEach(button => { button.disabled = false; });
+            partidaPendiente = true;
+            document.getElementById('winner-panel').style.display = 'block';
+            actualizarInterfaz();
+        } catch (error) {
+            console.error('Error al generar la partida.', error);
+            partidaPendiente = false;
+            document.getElementById('winner-panel').style.display = 'none';
+            alert("No se pudo generar la partida. Recarga la página e inténtalo de nuevo.");
+        } finally {
+            sorteoEnCurso = false;
+            botonSorteo.disabled = false;
+            renderSelector();
         }
-        equiposActuales = { blue: [...blueSide], red: [...redSide] };
-        mvpElegido = { blue: false, red: false };
-        mvpActual = { blue: null, red: null };
-        campeonesActuales = { blue: {}, red: {} };
-        partidaPendiente = false;
-        document.getElementById('winner-panel').style.display = 'none';
-        document.getElementById('slots-blue').innerHTML = "";
-        document.getElementById('slots-red').innerHTML = "";
-
-        const rondas = Math.max(blueSide.length, redSide.length);
-        for(let i = 0; i < rondas; i++) {
-            const animaciones = [];
-            if (blueSide[i]) animaciones.push(animarPareja('slots-blue', blueSide[i]));
-            if (redSide[i]) animaciones.push(animarPareja('slots-red', redSide[i]));
-            await Promise.all(animaciones);
-            if(i < rondas - 1) await new Promise(r => setTimeout(r, 1500));
-        }
-
-        partidaPendiente = true;
-        document.getElementById('winner-panel').style.display = 'block';
-        actualizarInterfaz();
     }
 
     function registrarMVP(equipo, name, button) {
-        if (!partidaPendiente || mvpElegido[equipo]) return;
-        if (!equiposActuales[equipo].includes(name)) return;
+        if (!partidaPendiente || !['blue', 'red'].includes(equipo) || mvpElegido[equipo]) return;
+        if (!equiposActuales[equipo].includes(name) || !db[name]) return;
 
         db[name].m++;
         mvpElegido[equipo] = true;
@@ -388,16 +482,21 @@
     }
 
     function registrarVictoria(equipo) {
-        if (!partidaPendiente) return;
+        if (!partidaPendiente || !['blue', 'red'].includes(equipo)) return;
 
-        // La partida cuenta para todos SOLO cuando se confirma el ganador.
-        seleccionados.forEach(name => {
-            db[name].games++;
+        const jugadoresDeLaPartida = [...equiposActuales.blue, ...equiposActuales.red];
+        if (jugadoresDeLaPartida.some(name => !db[name])) {
+            return alert("No se puede registrar la partida porque falta un jugador en el ranking. Revisa los datos antes de continuar.");
+        }
+
+        // Se cuentan los participantes del sorteo, no la selección que quede en pantalla.
+        jugadoresDeLaPartida.forEach(name => {
+            db[name].games = enteroNoNegativo(db[name].games) + 1;
         });
 
         // La victoria cuenta únicamente para el equipo ganador.
         equiposActuales[equipo].forEach(name => {
-            db[name].w++;
+            db[name].w = enteroNoNegativo(db[name].w) + 1;
         });
 
         const partida = {
@@ -453,32 +552,41 @@
         container.innerHTML = historialPartidas.map((partida, index) => {
             const nombreGanador = partida.ganador === 'blue' ? 'EQUIPO AZUL' : 'EQUIPO ROJO';
             const nombrePerdedor = partida.perdedor === 'blue' ? 'EQUIPO AZUL' : 'EQUIPO ROJO';
+            const blueNames = Array.isArray(partida.blue) ? partida.blue : [];
+            const redNames = Array.isArray(partida.red) ? partida.red : [];
+            const blueData = Array.isArray(partida.blueData) ? partida.blueData : blueNames.map(name => ({ name, champion: null, image: null }));
+            const redData = Array.isArray(partida.redData) ? partida.redData : redNames.map(name => ({ name, champion: null, image: null }));
 
-            const blueData = partida.blueData || partida.blue.map(name => ({ name, champion: null, image: null }));
-            const redData = partida.redData || partida.red.map(name => ({ name, champion: null, image: null }));
-
-            const renderHistoryPlayers = (players) => players.map(player => `
-                <div class="history-player">
-                    ${player.image ? `<img src="${player.image}" alt="${player.champion || ''}">` : ''}
-                    <div>
-                        <strong>${player.name}</strong>
-                        <small>${player.champion || 'Campeón no registrado'}</small>
+            const renderHistoryPlayers = (players) => players.map(rawPlayer => {
+                const player = typeof rawPlayer === 'string'
+                    ? { name: rawPlayer, champion: null, image: null }
+                    : (rawPlayer && typeof rawPlayer === 'object' ? rawPlayer : { name: 'Desconocido' });
+                const imageUrl = urlImagenCampeonSegura(player.image);
+                const nombre = escaparHTML(player.name || 'Jugador desconocido');
+                const campeon = escaparHTML(player.champion || 'Campeón no registrado');
+                return `
+                    <div class="history-player">
+                        ${imageUrl ? `<img src="${escaparHTML(imageUrl)}" alt="${campeon}" loading="lazy">` : ''}
+                        <div>
+                            <strong>${nombre}</strong>
+                            <small>${campeon}</small>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
             return `
                 <div class="history-match">
-                    <h3>PARTIDA #${historialPartidas.length - index} · ${partida.fecha}</h3>
+                    <h3>PARTIDA #${historialPartidas.length - index} · ${escaparHTML(partida.fecha || 'Fecha desconocida')}</h3>
                     <div class="history-team">
                         <strong style="color:var(--blue-bright)">EQUIPO AZUL</strong>
                         <div class="history-players">${renderHistoryPlayers(blueData)}</div>
-                        <div style="margin-top:8px;">MVP: <strong>${partida.mvpBlue || 'Sin registrar'}</strong></div>
+                        <div style="margin-top:8px;">MVP: <strong>${escaparHTML(partida.mvpBlue || 'Sin registrar')}</strong></div>
                     </div>
                     <div class="history-team">
                         <strong style="color:var(--red)">EQUIPO ROJO</strong>
                         <div class="history-players">${renderHistoryPlayers(redData)}</div>
-                        <div style="margin-top:8px;">MVP: <strong>${partida.mvpRed || 'Sin registrar'}</strong></div>
+                        <div style="margin-top:8px;">MVP: <strong>${escaparHTML(partida.mvpRed || 'Sin registrar')}</strong></div>
                     </div>
                     <div class="history-winner">
                         GANADOR: ${nombreGanador} · PERDEDOR: ${nombrePerdedor}
@@ -494,7 +602,7 @@
             const slot = document.createElement('div');
             slot.className = 'slot visible';
             const equipo = containerId.replace("slots-", "");
-            slot.innerHTML = `<img src="" style="filter:grayscale(1)"> <div><b>${name}</b><br><small class="champ-name">...</small></div><button class="mvp-button" onclick="registrarMVP('${equipo}', '${name}', this)">MVP</button>`;
+            slot.innerHTML = `<img src="" alt="" style="filter:grayscale(1)"> <div><b>${escaparHTML(name)}</b><br><small class="champ-name">...</small></div><button class="mvp-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" disabled>MVP</button>`;
             container.appendChild(slot);
             const img = slot.querySelector('img');
             const txt = slot.querySelector('.champ-name');
@@ -544,6 +652,7 @@
     }
 
     function abrirEditor() {
+        if (sorteoEnCurso || partidaPendiente) return alert("No puedes editar jugadores durante una partida pendiente.");
         document.getElementById('editor-pin-panel').style.display = 'block';
         document.getElementById('editor-pin-input').value = '';
         document.getElementById('editor-pin-input').focus();
@@ -558,16 +667,16 @@
     }
 
     function renderEditor() {
-        document.getElementById('tabla-editor').innerHTML = Object.keys(db).map(name => `
-            <tr>
-                <td>${name}</td>
-                <td><input class="editor-input" type="number" min="0" value="${db[name].games}" onchange="db['${name}'].games=Math.max(0, parseInt(this.value) || 0)"></td>
-                <td><input class="editor-input" type="number" value="${db[name].w}" onchange="db['${name}'].w=Math.max(0, parseInt(this.value) || 0)"></td>
-                <td><input class="editor-input" type="number" value="${db[name].m}" onchange="db['${name}'].m=Math.max(0, parseInt(this.value) || 0)"></td>
-                <td><input class="editor-input" type="number" min="0" max="5" step="0.5" value="${db[name].level}" onchange="db['${name}'].level=Math.max(0, Math.min(5, parseFloat(this.value) || 0))"></td>
+        document.getElementById('tabla-editor').innerHTML = Object.keys(db).sort().map(name => `
+            <tr data-player="${escaparHTML(name)}">
+                <td>${escaparHTML(name)}</td>
+                <td><input class="editor-input" type="number" min="0" data-field="games" aria-label="Partidas de ${escaparHTML(name)}" value="${enteroNoNegativo(db[name].games)}"></td>
+                <td><input class="editor-input" type="number" min="0" data-field="w" aria-label="Victorias de ${escaparHTML(name)}" value="${enteroNoNegativo(db[name].w)}"></td>
+                <td><input class="editor-input" type="number" min="0" data-field="m" aria-label="MVP de ${escaparHTML(name)}" value="${enteroNoNegativo(db[name].m)}"></td>
+                <td><input class="editor-input" type="number" min="0" max="5" step="0.5" data-field="level" aria-label="Nivel de ${escaparHTML(name)}" value="${nivelSeguro(db[name].level)}"></td>
                 <td>
-                    <button onclick="editarNombre(this.closest('tr').querySelector('td').innerText)" style="padding:5px; margin-right:5px;">✎</button>
-                    <button onclick="if(confirm('¿Eliminar?')){delete db['${name}']; renderEditor();}" style="background:red; padding:5px;">X</button>
+                    <button type="button" data-action="rename" data-player="${escaparHTML(name)}" style="padding:5px; margin-right:5px;" aria-label="Renombrar ${escaparHTML(name)}">✎</button>
+                    <button type="button" data-action="delete" data-player="${escaparHTML(name)}" style="background:red; padding:5px;" aria-label="Eliminar ${escaparHTML(name)}">X</button>
                 </td>
             </tr>
         `).join('');
@@ -587,6 +696,7 @@
 
         db[nombreLimpio] = db[nombreActual];
         delete db[nombreActual];
+        seleccionados = seleccionados.map(nombre => nombre === nombreActual ? nombreLimpio : nombre);
 
         actualizarInterfaz();
         renderEditor();
@@ -600,8 +710,138 @@
     }
 
     function nuevoJugador() {
-        const n = prompt("Nombre del Invocador:");
-        if(n) { db[n] = { w: 0, m: 0, games: 0, level: 3 }; renderEditor(); }
+        const entrada = prompt("Nombre del Invocador:");
+        if (entrada === null) return;
+        const nombre = entrada.trim();
+        if (!nombre) return alert("El nombre no puede estar vacío.");
+        if (nombre.length > 32) return alert("El nombre no puede superar los 32 caracteres.");
+        if (db[nombre]) return alert("Ya existe un jugador con ese nombre.");
+        db[nombre] = { w: 0, m: 0, games: 0, level: 3 };
+        actualizarInterfaz();
+        renderEditor();
+    }
+
+    function exportarDatos() {
+        const copia = {
+            format: 'league-of-colegones-backup',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            jugadores: db,
+            historialPartidas
+        };
+        const blob = new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = 'league-of-colegones-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+        document.body.appendChild(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function importarDatos(event) {
+        const input = event.target;
+        const archivo = input.files && input.files[0];
+        if (!archivo) return;
+        try {
+            if (archivo.size > 5 * 1024 * 1024) throw new Error('El archivo supera los 5 MB.');
+            const copia = JSON.parse(await archivo.text());
+            if (
+                copia?.format !== 'league-of-colegones-backup' ||
+                copia.version !== 1 ||
+                !copia.jugadores || typeof copia.jugadores !== 'object' ||
+                !Array.isArray(copia.historialPartidas)
+            ) throw new Error('El formato del archivo no es válido.');
+
+            const nuevosJugadores = {};
+            Object.entries(copia.jugadores).forEach(([nombreOriginal, stats]) => {
+                const nombre = String(nombreOriginal).trim();
+                if (!nombre || nombre.length > 32 || !stats || typeof stats !== 'object') return;
+                nuevosJugadores[nombre] = {
+                    w: enteroNoNegativo(stats.w),
+                    m: enteroNoNegativo(stats.m),
+                    games: enteroNoNegativo(stats.games),
+                    level: nivelSeguro(stats.level)
+                };
+            });
+            if (Object.keys(nuevosJugadores).length === 0) throw new Error('La copia no contiene jugadores válidos.');
+
+            const nuevoHistorial = copia.historialPartidas
+                .filter(partida => partida && Array.isArray(partida.blue) && Array.isArray(partida.red) && ['blue', 'red'].includes(partida.ganador))
+                .slice(0, 20);
+
+            if (!confirm('Importar esta copia reemplazará el ranking y el historial actuales. ¿Continuar?')) return;
+            db = nuevosJugadores;
+            historialPartidas = nuevoHistorial;
+            seleccionados = [];
+            equiposActuales = { blue: [], red: [] };
+            campeonesActuales = { blue: {}, red: {} };
+            mvpElegido = { blue: false, red: false };
+            mvpActual = { blue: null, red: null };
+            partidaPendiente = false;
+            actualizarInterfaz();
+            renderEditor();
+            alert('Copia importada correctamente.');
+        } catch (error) {
+            console.error('No se pudo importar la copia.', error);
+            alert('No se pudo importar la copia: ' + error.message);
+        } finally {
+            input.value = '';
+        }
+    }
+
+    function configurarEventosDelegados() {
+        const grid = document.getElementById('grid-jugadores');
+        grid.addEventListener('click', event => {
+            const tarjeta = event.target.closest('[data-player]');
+            if (tarjeta) togglePlayer(tarjeta.dataset.player);
+        });
+        grid.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            const tarjeta = event.target.closest('[data-player]');
+            if (!tarjeta) return;
+            event.preventDefault();
+            togglePlayer(tarjeta.dataset.player);
+        });
+
+        ['blue', 'red'].forEach(equipo => {
+            document.getElementById('slots-' + equipo).addEventListener('click', event => {
+                const boton = event.target.closest('.mvp-button');
+                if (boton) registrarMVP(boton.dataset.equipo, boton.dataset.player, boton);
+            });
+        });
+
+        const tablaEditor = document.getElementById('tabla-editor');
+        tablaEditor.addEventListener('change', event => {
+            const entrada = event.target.closest('[data-field]');
+            const fila = entrada?.closest('tr[data-player]');
+            if (!entrada || !fila || !db[fila.dataset.player]) return;
+            const jugador = db[fila.dataset.player];
+            switch (entrada.dataset.field) {
+                case 'games': jugador.games = enteroNoNegativo(entrada.value); break;
+                case 'w': jugador.w = enteroNoNegativo(entrada.value); break;
+                case 'm': jugador.m = enteroNoNegativo(entrada.value); break;
+                case 'level': jugador.level = nivelSeguro(entrada.value); break;
+                default: return;
+            }
+            actualizarInterfaz();
+        });
+        tablaEditor.addEventListener('click', event => {
+            const boton = event.target.closest('button[data-action]');
+            if (!boton) return;
+            const nombre = boton.dataset.player;
+            if (!db[nombre]) return;
+            if (boton.dataset.action === 'rename') {
+                editarNombre(nombre);
+            } else if (boton.dataset.action === 'delete') {
+                if (!confirm('¿Seguro que quieres eliminar a ' + nombre + '?')) return;
+                delete db[nombre];
+                seleccionados = seleccionados.filter(jugador => jugador !== nombre);
+                actualizarInterfaz();
+                renderEditor();
+            }
+        });
     }
 
     function cerrarEditor() {
@@ -609,6 +849,7 @@
         actualizarInterfaz();
     }
 
+    configurarEventosDelegados();
     init();
 </script>
 </body>
