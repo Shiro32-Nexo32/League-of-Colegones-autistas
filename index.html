@@ -365,9 +365,6 @@
             if(i < rondas - 1) await new Promise(r => setTimeout(r, 1500));
         }
 
-        seleccionados.forEach(name => {
-            db[name].games++;
-        });
         partidaPendiente = true;
         document.getElementById('winner-panel').style.display = 'block';
         actualizarInterfaz();
@@ -392,6 +389,13 @@
 
     function registrarVictoria(equipo) {
         if (!partidaPendiente) return;
+
+        // La partida cuenta para todos SOLO cuando se confirma el ganador.
+        seleccionados.forEach(name => {
+            db[name].games++;
+        });
+
+        // La victoria cuenta únicamente para el equipo ganador.
         equiposActuales[equipo].forEach(name => {
             db[name].w++;
         });
@@ -505,12 +509,33 @@
 
                 if(loops++ > maxLoops) {
                     clearInterval(interval);
+
+                    // Nunca repetimos campeón dentro del mismo equipo.
+                    const campeonesUsados = Object.values(campeonesActuales[equipo])
+                        .map(campeon => campeon?.name)
+                        .filter(Boolean);
+
+                    const campeonesDisponibles = CHAMPIONS.filter(champion =>
+                        !campeonesUsados.includes(champion.name)
+                    );
+
+                    const campeonFinal =
+                        campeonesDisponibles.length > 0
+                            ? campeonesDisponibles[
+                                Math.floor(Math.random() * campeonesDisponibles.length)
+                            ]
+                            : c;
+
+                    img.src = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${campeonFinal.id}.png`;
+                    txt.innerText = campeonFinal.name;
                     img.style.filter = "none";
                     slot.classList.add('active');
+
                     campeonesActuales[equipo][name] = {
-                        name: c.name,
+                        name: campeonFinal.name,
                         image: img.src
                     };
+
                     playBoom();
                     resolve();
                 }
