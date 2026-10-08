@@ -230,11 +230,15 @@
         "Kai": 1
     };
 
+    if (!db || typeof db !== 'object' || Array.isArray(db)) db = {};
     Object.keys(db).forEach(name => {
-        if (db[name].games === undefined) db[name].games = 0;
-        if (db[name].m === undefined) db[name].m = 0;
-        if (db[name].w === undefined) db[name].w = 0;
-        if (db[name].level === undefined) db[name].level = NIVELES_INICIALES[name] ?? 3;
+        if (!db[name] || typeof db[name] !== 'object' || Array.isArray(db[name])) db[name] = {};
+        db[name].games = enteroNoNegativo(db[name].games);
+        db[name].m = enteroNoNegativo(db[name].m);
+        db[name].w = enteroNoNegativo(db[name].w);
+        db[name].level = db[name].level === undefined
+            ? (NIVELES_INICIALES[name] ?? 3)
+            : nivelSeguro(db[name].level);
     });
 
     const AJUSTE_PARTIDAS_INICIALES = 'ajuste_partidas_alexgoraeta_iraideta_v1';
@@ -322,7 +326,7 @@
     let historialPartidas = leerJSONLocalStorage('lol_match_history', []);
     if (!Array.isArray(historialPartidas)) historialPartidas = [];
     historialPartidas = historialPartidas
-        .filter(partida => partida && typeof partida === 'object' && Array.isArray(partida.blue) && Array.isArray(partida.red))
+        .filter(partida => partida && typeof partida === 'object' && Array.isArray(partida.blue) && Array.isArray(partida.red) && ['blue', 'red'].includes(partida.ganador))
         .slice(0, 20);
 
     async function init() {
@@ -362,7 +366,7 @@
             winRate: db[name].games > 0 ? (db[name].w / db[name].games) * 100 : 0
         })).sort((a,b) => b.pts - a.pts);
         document.getElementById('lista-ranking').innerHTML = ranking.map((j, i) => `
-            <tr><td>${i+1}</td><td>${escaparHTML(j.name)}</td><td>${j.pts}</td><td>${j.w}</td><td>${j.m}</td><td>${j.winRate.toFixed(1)}%</td></tr>
+            <tr><td>${i+1}</td><td>${escaparHTML(j.name)}</td><td>${escaparHTML(j.pts)}</td><td>${escaparHTML(j.w)}</td><td>${escaparHTML(j.m)}</td><td>${escaparHTML(j.winRate.toFixed(1))}%</td></tr>
         `).join('');
     }
 
@@ -468,7 +472,6 @@
         if (!partidaPendiente || !['blue', 'red'].includes(equipo) || mvpElegido[equipo]) return;
         if (!equiposActuales[equipo].includes(name) || !db[name]) return;
 
-        db[name].m++;
         mvpElegido[equipo] = true;
         mvpActual[equipo] = name;
         button.classList.add('selected');
@@ -478,7 +481,6 @@
             if (btn !== button) btn.disabled = true;
         });
 
-        actualizarInterfaz();
     }
 
     function registrarVictoria(equipo) {
@@ -497,6 +499,11 @@
         // La victoria cuenta únicamente para el equipo ganador.
         equiposActuales[equipo].forEach(name => {
             db[name].w = enteroNoNegativo(db[name].w) + 1;
+        });
+
+        ['blue', 'red'].forEach(lado => {
+            const mvp = mvpActual[lado];
+            if (mvp && db[mvp]) db[mvp].m = enteroNoNegativo(db[mvp].m) + 1;
         });
 
         const partida = {
