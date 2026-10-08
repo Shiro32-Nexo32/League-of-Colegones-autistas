@@ -22,7 +22,7 @@ const context = {
     nivelJugador: name => levels[name]
 };
 runInNewContext(
-    source + '\\nglobalThis.testPrepararEquiposImpares = prepararEquiposImpares;',
+    source + '\nglobalThis.testPrepararEquiposImpares = prepararEquiposImpares;',
     context
 );
 
@@ -32,8 +32,11 @@ const observedPairs = new Set();
 for (let i = 0; i < 250; i++) {
     const teams = context.testPrepararEquiposImpares(players);
     assert.equal(teams.blue.length + teams.red.length, players.length);
-    assert.equal(teams.blue.length, 2, 'El equipo azul debe alternar con el lado pequeño/mediano según la regla de jugador impar.');
-    assert.equal(teams.red.length, 3);
+    assert.deepEqual(
+        [teams.blue.length, teams.red.length].sort(),
+        [2, 3],
+        'Con cinco jugadores, un equipo debe tener dos jugadores y el otro tres.'
+    );
     assert.equal(new Set([...teams.blue, ...teams.red]).size, players.length, 'No debe duplicar jugadores.');
 
     const smallTeam = teams.blue.length === 2 ? teams.blue : teams.red;
