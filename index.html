@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#010a13">
+    <link rel="icon" type="image/svg+xml" href="./sg-icon.svg">
     <title>LEAGUE OF FRIENDS - PURE EDITION</title>
     <style>
         :root { 
@@ -11,6 +13,33 @@
         }
         body { background: var(--blue-dark); color: var(--gold); font-family: 'Times New Roman', serif; margin: 0; padding: 20px; }
         .container { max-width: 1000px; margin: auto; border: 1px solid var(--gold-dark); background: var(--blue-medium); padding: 40px; box-shadow: 0 0 50px black; }
+
+        .site-brand {
+            display: flex; justify-content: center; align-items: center; gap: 18px;
+            width: fit-content; max-width: 100%; box-sizing: border-box;
+            margin: 0 auto 28px; padding: 14px 22px;
+            border: 1px solid rgba(200,170,110,0.45);
+            background: linear-gradient(135deg, rgba(0,0,0,0.42), rgba(0,126,255,0.09));
+            box-shadow: 0 0 28px rgba(0,0,0,0.35);
+        }
+        .site-brand img {
+            display: block; flex: 0 0 auto; width: 84px; height: 84px;
+            object-fit: cover; border-radius: 50%; border: 2px solid var(--gold);
+            box-shadow: 0 0 22px rgba(0,126,255,0.26);
+        }
+        .brand-mark {
+            color: #f7d887; font: 900 2.1rem/1 Arial, sans-serif;
+            letter-spacing: 0.18em; text-shadow: 0 0 13px rgba(0,126,255,0.5);
+        }
+        .brand-name {
+            color: #fff; font: 700 0.88rem/1.55 Arial, sans-serif;
+            letter-spacing: 0.12em; text-transform: uppercase;
+        }
+        .brand-caption {
+            margin-top: 3px; color: #70dfff; font: 600 0.64rem/1.5 Arial, sans-serif;
+            letter-spacing: 0.11em; text-transform: uppercase;
+        }
+
         h1, h2 { text-transform: uppercase; letter-spacing: 4px; border-bottom: 2px solid var(--gold-dark); padding-bottom: 10px; text-align: center; color: white; }
         .ranking-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         .ranking-table th { background: var(--gold-dark); color: black; padding: 12px; text-transform: uppercase; }
@@ -56,6 +85,11 @@
         .history-player small { display: block; opacity: 0.75; margin-top: 3px; }
         .history-winner { color: var(--gold); font-weight: bold; }
         @media (max-width: 700px) {
+            .site-brand { gap: 12px; padding: 12px 14px; }
+            .site-brand img { width: 66px; height: 66px; }
+            .brand-mark { font-size: 1.7rem; }
+            .brand-name { font-size: 0.73rem; }
+            .brand-caption { font-size: 0.57rem; letter-spacing: 0.07em; }
             body { padding: 8px; }
             .container { padding: 20px; }
             .teams-wrapper { grid-template-columns: 1fr; }
@@ -65,6 +99,14 @@
 </head>
 <body>
 <div class="container">
+    <header class="site-brand" aria-label="Grupo de amigos SG">
+        <img src="./sg-avatar.webp" alt="Emblema del grupo SG" width="84" height="84">
+        <div class="brand-copy">
+            <div class="brand-mark">SG</div>
+            <div class="brand-name">League of Colegones</div>
+            <div class="brand-caption">El grupo · La grieta · La gloria</div>
+        </div>
+    </header>
     <div id="test-info" style="font-size: 0.8em; opacity: 0.5; text-align: center;">CONECTANDO CON SERVIDORES DE RIOT...</div>
     <h1>RANKING</h1>
     <table class="ranking-table">
