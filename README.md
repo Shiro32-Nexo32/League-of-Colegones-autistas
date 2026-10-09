@@ -6,7 +6,7 @@ Aplicación web estática para organizar partidas personalizadas de League of Le
 
 - Ranking con puntos, victorias, MVP y porcentaje de victorias.
 - Selección de entre 2 y 10 jugadores.
-- Sorteo aleatorio de equipos. Si el número de jugadores es impar, tiene en cuenta el nivel asignado para buscar equipos equilibrados.
+- Sorteo de equipos mediante Fisher–Yates. Si el número de jugadores es impar, busca el equilibrio por nivel y sortea entre todas las combinaciones empatadas como óptimas. La aleatoriedad usa `Math.random()` y no es criptográfica.
 - Sorteo de campeones sin repetirlos dentro del mismo equipo.
 - Registro de los MVP y del equipo ganador.
 - Historial con los últimos 20 resultados.
@@ -43,4 +43,4 @@ El script de comprobación no requiere paquetes adicionales:
 node scripts/validate-inline-js.mjs
 ```
 
-Comprueba la sintaxis del JavaScript incrustado en `index.html`. La validación también se ejecuta automáticamente mediante GitHub Actions al hacer push a `main` o abrir una pull request hacia esa rama.
+Comprueba la sintaxis del JavaScript incrustado en `index.html`. `scripts/test-team-randomization.mjs` cubre los empates del reparto impar y se ejecuta junto a esa comprobación en GitHub Actions al hacer push a `main` o abrir una pull request hacia esa rama.
