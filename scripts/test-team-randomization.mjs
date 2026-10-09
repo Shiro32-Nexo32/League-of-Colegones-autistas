@@ -15,6 +15,8 @@ let randomCalls = 0;
 const math = {
     floor: Math.floor,
     abs: Math.abs,
+    max: Math.max,
+    min: Math.min,
     random: () => ((randomCalls++ % 101) / 101)
 };
 const context = {
