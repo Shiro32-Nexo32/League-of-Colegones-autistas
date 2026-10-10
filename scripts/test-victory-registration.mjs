@@ -44,17 +44,47 @@ function runRegistration(winner) {
     return context;
 }
 
+const expectedGames = { Ana: 6, Biel: 5, Carla: 4, Dani: 7 };
+const expectedWins = {
+    blue: { Ana: 3, Biel: 2, Carla: 0, Dani: 3 },
+    red: { Ana: 2, Biel: 1, Carla: 1, Dani: 4 },
+};
+const expectedMvp = { Ana: 2, Biel: 0, Carla: 3, Dani: 1 };
+const expectedPoints = {
+    blue: { Ana: 40, Biel: 20, Carla: 15, Dani: 35 },
+    red: { Ana: 30, Biel: 10, Carla: 25, Dani: 45 },
+};
+
 for (const winner of ['blue', 'red']) {
     const context = runRegistration(winner);
-    const stats = context.db;
 
-    for (const name of ['Ana', 'Biel', 'Carla', 'Dani']) {
-        assert.equal(stats[name].games, ({ Ana: 6, Biel: 5, Carla: 4, Dani: 7 })[name],
-            'Cada participante debe sumar exactamente una partida.');
+    for (const name of Object.keys(expectedGames)) {
+        assert.equal(context.db[name].games, expectedGames[name],
+            name + ' debe sumar una partida, gane o pierda.');
+        assert.equal(context.db[name].w, expectedWins[winner][name],
+            name + ' solo debe sumar una victoria si pertenece al equipo ganador.');
+        assert.equal(context.db[name].m, expectedMvp[name],
+            name + ' debe recibir MVP únicamente si ha sido seleccionado.');
+        assert.equal(context.db[name].w * 10 + context.db[name].m * 5, expectedPoints[winner][name],
+            'La puntuación debe ser 10 por victoria y 5 por MVP para ' + name + '.');
     }
 
-    const winners = context.equiposActuales[winner];
-    const losers = context.equiposActuales[winner === 'blue' ? 'red' : 'blue'];
-    for (const name of winners) assert.equal(stats[name].w, ({ Ana: 3, Biel: 2, Carla: 0, Dani: 3 })[name] + (['Ana', 'Biel'].includes(name) && winner === 'red' ? 0 : 0) ,
-        'placeholder');
+    assert.equal(context.historialPartidas.length, 1);
+    assert.equal(context.historialPartidas[0].ganador, winner);
+    assert.equal(context.historialPartidas[0].mvpBlue, 'Ana');
+    assert.equal(context.historialPartidas[0].mvpRed, 'Carla');
+    assert.equal(context.updated, 1);
+    assert.equal(context.partidaPendiente, false);
+
+    const firstSnapshot = JSON.stringify({
+        db: context.db,
+        history: context.historialPartidas,
+    });
+    context.__registrarVictoria(winner);
+    assert.equal(JSON.stringify({
+        db: context.db,
+        history: context.historialPartidas,
+    }), firstSnapshot, 'Un segundo clic no debe sumar la misma victoria dos veces.');
 }
+
+console.log('OK: victorias, partidas, MVP, puntos, historial y protección contra doble registro.');
