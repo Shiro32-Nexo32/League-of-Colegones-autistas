@@ -6,7 +6,7 @@ Aplicación web estática para organizar partidas personalizadas de League of Le
 
 - Ranking con puntos, victorias, MVP y porcentaje de victorias.
 - Selección de entre 2 y 10 jugadores.
-- Sorteo de equipos mediante Fisher–Yates. Si el número de jugadores es impar, busca el equilibrio por nivel y sortea entre todas las combinaciones empatadas como óptimas. La aleatoriedad usa `Math.random()` y no es criptográfica.
+- Sorteo de equipos mediante Fisher–Yates. Si el número de jugadores es impar, busca el equilibrio por nivel y sortea entre todas las combinaciones empatadas como óptimas. La aleatoriedad usa \`Math.random()\` y no es criptográfica.
 - Sorteo de campeones sin repetirlos dentro del mismo equipo.
 - Registro de los MVP y del equipo ganador.
 - Historial con los últimos 20 resultados.
@@ -15,43 +15,44 @@ Aplicación web estática para organizar partidas personalizadas de League of Le
 
 ## Cómo ejecutarla
 
-No necesita instalación, compilación ni dependencias propias. Se puede publicar como sitio estático o servir desde la carpeta del proyecto:
+No necesita instalación, compilación ni dependencias propias. Se puede publicar como sitio estático o servir desde la carpeta del proyecto. La aplicación necesita conexión a internet para consultar la lista de campeones y sus imágenes en Riot Data Dragon. Si ese servicio no está disponible, el ranking y el historial locales siguen siendo visibles, pero no se pueden generar nuevas partidas.
 
-```bash
-python -m http.server 8000
-```
+## Ranking compartido con Cloudflare
 
-Después, abre `http://localhost:8000`. La aplicación necesita conexión a internet para consultar la lista de campeones y sus imágenes en Riot Data Dragon. Si ese servicio no está disponible, el ranking y el historial locales siguen siendo visibles, pero no se pueden generar nuevas partidas.
+El ranking y el historial se guardan en el navegador como copia local. Para compartirlos con otros dispositivos, esta aplicación utiliza un **Cloudflare Worker propio de League of Colegones** y un **espacio KV propio del proyecto**. No utiliza el Worker ni el espacio KV de KOI.
 
-## Ranking compartido y copias de seguridad
+El sitio intentará conectar con:
 
-El ranking y el historial se conservan en el `localStorage` como copia local y, una vez activado el servicio compartido, también se sincronizan con el servidor común. La web consulta cambios cada 15 segundos y sube los cambios después de guardarlos en la interfaz.
+\`https://league-of-colegones-sync.raulbermudeztena.workers.dev/api/league/state\`
 
-### Primera activación (una sola vez)
+Si Cloudflare obliga a usar otro subdominio o el nombre del Worker no está disponible, cambia la constante \`SHARED_STATE_API\` en \`index.html\` por la URL asignada.
 
-1. Despliega la versión actualizada del Cloudflare Worker desde el repositorio `Shiro32-Nexo32/KOI`, siguiendo su README y ejecutando `npx wrangler@latest deploy` con el `wrangler.toml` local que ya tiene configurado el namespace `SYNC_STATUS`.
-2. Espera a que se publique esta web en GitHub Pages y ábrela en el navegador que contiene las estadísticas correctas.
-3. Introduce el PIN, abre **Modo Editor** y pulsa **Activar ranking compartido**. Confirma únicamente si esa es la copia que quieres conservar como base común.
-4. Después de ver **Ranking compartido activo**, el resto del grupo puede abrir la misma web: recibirá el ranking y el historial del servidor.
+### Configuración inicial en Cloudflare (sin instalar programas)
 
-**Importante:** la primera activación convierte los datos de ese navegador en la copia común. No combina automáticamente las estadísticas independientes que existan en otros ordenadores. Exporta una copia antes de activarlo si necesitas conservar esos datos.
+1. En el panel de Cloudflare, abre **Workers & Pages → KV** y crea un espacio KV nuevo llamado \`COLEGONES_SHARED_STATE\`. No selecciones el espacio KV de KOI.
+2. Abre **Workers & Pages → Create → Worker** y crea un Worker llamado \`league-of-colegones-sync\`.
+3. En el editor de código del Worker, reemplaza el ejemplo por el contenido completo de \`cloudflare/worker.mjs\` de este repositorio y guarda/despliega el Worker.
+4. En la configuración del Worker, abre **Settings → Bindings**, añade una vinculación **KV Namespace** con el nombre de variable \`COLEGONES_STATE\` y selecciona el espacio \`COLEGONES_SHARED_STATE\` creado en el primer paso. Guarda y vuelve a desplegar si Cloudflare lo solicita.
+5. Comprueba que la URL del Worker acaba en \`/api/league/state\` y responde con JSON indicando \`"initialized": false\` antes de activar el ranking.
+6. Cuando el cambio de esta aplicación esté publicado en GitHub Pages, abre la web desde el navegador que contiene las estadísticas que quieres conservar. Entra al editor y pulsa **Activar ranking compartido** una sola vez.
+7. Los demás dispositivos podrán abrir la misma web y cargarán el ranking compartido. No actives el ranking desde un navegador que tenga estadísticas incompletas o antiguas.
 
-### Copias de seguridad y conflictos
+### Copias y límites importantes
 
-En el editor, **Exportar copia** descarga un JSON con el ranking y el historial. **Importar copia** reemplaza los datos actuales después de pedir confirmación. Haz copias periódicas.
-
-Si dos dispositivos cambian el ranking al mismo tiempo, el sistema detecta que la revisión del servidor ha cambiado y no sube encima los cambios antiguos de forma silenciosa. En ese caso, exporta primero una copia local y usa **Cargar ranking compartido** para recargar la versión común; habrá que reconciliar manualmente cualquier resultado que no se haya sincronizado.
-
-## Seguridad
-
-El PIN de acceso solo oculta los controles de la interfaz para evitar modificaciones accidentales. Como toda la aplicación se ejecuta en el navegador y su código es público, no debe considerarse una medida de seguridad real ni utilizarse para proteger datos sensibles.
+- Antes de activar la sincronización, usa **Exportar copia** y guarda el JSON como respaldo.
+- La primera activación toma el ranking y el historial de un solo navegador; no mezcla automáticamente datos que haya guardados en otros dispositivos.
+- El Worker comprueba la revisión para detectar muchos conflictos. Cloudflare KV no ofrece una operación atómica de comparación y escritura, por lo que dos guardados exactamente simultáneos podrían competir; después de partidas simultáneas, revisad el ranking y conservad copias.
+- El endpoint no requiere iniciar sesión. La restricción de origen ayuda frente a llamadas accidentales desde otras páginas, pero no impide que alguien técnicamente capaz envíe peticiones directas y modifique los datos. El PIN de la web solo oculta botones en el navegador; no es una medida de seguridad real. No guardéis información sensible en este sistema.
 
 ## Validación del código
 
-El script de comprobación no requiere paquetes adicionales:
+Los scripts de comprobación se ejecutan con Node.js y no requieren paquetes externos:
 
-```bash
+\`\`\`bash
 node scripts/validate-inline-js.mjs
-```
+node scripts/test-team-randomization.mjs
+node scripts/test-victory-registration.mjs
+node scripts/test-cloudflare-worker.mjs
+\`\`\`
 
-Comprueba la sintaxis del JavaScript incrustado en `index.html`. `scripts/test-team-randomization.mjs` cubre los empates del reparto impar y se ejecuta junto a esa comprobación en GitHub Actions al hacer push a `main` o abrir una pull request hacia esa rama.
+GitHub Actions ejecuta estas comprobaciones cuando hay cambios en \`main\` o se abre una pull request hacia esa rama.
