@@ -23,3 +23,5 @@ jobs:
         run: node scripts/validate-inline-js.mjs
       - name: Test odd-team randomization and tie-breaking
         run: node scripts/test-team-randomization.mjs
+      - name: Test victory registration and points
+        run: node scripts/test-victory-registration.mjs
