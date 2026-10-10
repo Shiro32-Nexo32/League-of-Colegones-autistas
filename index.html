@@ -424,6 +424,12 @@
         };
     }
 
+    function estadoServidorCoincideConLocal(estado) {
+        if (!estado || !estado.players || !Array.isArray(estado.history)) return false;
+        const estadoServidor = JSON.stringify({ players: estado.players, history: estado.history });
+        return estadoServidor === JSON.stringify(estadoLocalParaCompartir());
+    }
+
     function aplicarEstadoCompartido(estado) {
         if (!estado || !estado.players || typeof estado.players !== 'object' || !Array.isArray(estado.history)) return;
         if (sorteoEnCurso || partidaPendiente) {
@@ -496,7 +502,14 @@
                         aplicarEstadoCompartido(state);
                     }
                 } else if (Number(state.revision) > Number(sharedRevision)) {
-                    if (sharedDirty || sharedSaving || sorteoEnCurso || partidaPendiente) {
+                    if (estadoServidorCoincideConLocal(state)) {
+                        sharedRevision = state.revision;
+                        sharedDirty = false;
+                        localChangesWithoutShared = false;
+                        sharedConflict = false;
+                        pendingSharedState = null;
+                        mostrarEstadoCompartido('Ranking compartido guardado · revisión ' + sharedRevision, 'success');
+                    } else if (sharedDirty || sharedSaving || sorteoEnCurso || partidaPendiente) {
                         pendingSharedState = state;
                         sharedConflict = true;
                         mostrarEstadoCompartido(
@@ -795,7 +808,7 @@
             document.querySelectorAll('.mvp-button').forEach(button => { button.disabled = false; });
             partidaPendiente = true;
             document.getElementById('winner-panel').style.display = 'block';
-            actualizarInterfaz();
+            actualizarInterfaz(false);
         } catch (error) {
             console.error('Error al generar la partida.', error);
             partidaPendiente = false;
