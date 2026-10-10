@@ -6,7 +6,7 @@ Aplicación web estática para organizar partidas personalizadas de League of Le
 
 - Ranking con puntos, victorias, MVP y porcentaje de victorias.
 - Selección de entre 2 y 10 jugadores.
-- Sorteo de equipos mediante Fisher–Yates. Si el número de jugadores es impar, busca el equilibrio por nivel y sortea entre todas las combinaciones empatadas como óptimas. La aleatoriedad usa \`Math.random()\` y no es criptográfica.
+- Sorteo de equipos mediante Fisher–Yates. Si el número de jugadores es impar, busca el equilibrio por nivel y sortea entre todas las combinaciones empatadas como óptimas. La aleatoriedad usa `Math.random()` y no es criptográfica.
 - Sorteo de campeones sin repetirlos dentro del mismo equipo.
 - Registro de los MVP y del equipo ganador.
 - Historial con los últimos 20 resultados.
@@ -23,17 +23,17 @@ El ranking y el historial se guardan en el navegador como copia local. Para comp
 
 El sitio intentará conectar con:
 
-\`https://league-of-colegones-sync.raulbermudeztena.workers.dev/api/league/state\`
+`https://league-of-colegones-sync.raulbermudeztena.workers.dev/api/league/state`
 
-Si Cloudflare obliga a usar otro subdominio o el nombre del Worker no está disponible, cambia la constante \`SHARED_STATE_API\` en \`index.html\` por la URL asignada.
+Si Cloudflare obliga a usar otro subdominio o el nombre del Worker no está disponible, cambia la constante `SHARED_STATE_API` en `index.html` por la URL asignada.
 
 ### Configuración inicial en Cloudflare (sin instalar programas)
 
-1. En el panel de Cloudflare, abre **Workers & Pages → KV** y crea un espacio KV nuevo llamado \`COLEGONES_SHARED_STATE\`. No selecciones el espacio KV de KOI.
-2. Abre **Workers & Pages → Create → Worker** y crea un Worker llamado \`league-of-colegones-sync\`.
-3. En el editor de código del Worker, reemplaza el ejemplo por el contenido completo de \`cloudflare/worker.mjs\` de este repositorio y guarda/despliega el Worker.
-4. En la configuración del Worker, abre **Settings → Bindings**, añade una vinculación **KV Namespace** con el nombre de variable \`COLEGONES_STATE\` y selecciona el espacio \`COLEGONES_SHARED_STATE\` creado en el primer paso. Guarda y vuelve a desplegar si Cloudflare lo solicita.
-5. Comprueba que la URL del Worker acaba en \`/api/league/state\` y responde con JSON indicando \`"initialized": false\` antes de activar el ranking.
+1. En el panel de Cloudflare, abre **Workers & Pages → KV** y crea un espacio KV nuevo llamado `COLEGONES_SHARED_STATE`. No selecciones el espacio KV de KOI.
+2. Abre **Workers & Pages → Create → Worker** y crea un Worker llamado `league-of-colegones-sync`.
+3. En el editor de código del Worker, reemplaza el ejemplo por el contenido completo de `cloudflare/worker.mjs` de este repositorio y guarda/despliega el Worker.
+4. En la configuración del Worker, abre **Settings → Bindings**, añade una vinculación **KV Namespace** con el nombre de variable `COLEGONES_STATE` y selecciona el espacio `COLEGONES_SHARED_STATE` creado en el primer paso. Guarda y vuelve a desplegar si Cloudflare lo solicita.
+5. Comprueba que la URL del Worker acaba en `/api/league/state` y responde con JSON indicando `"initialized": false` antes de activar el ranking.
 6. Cuando el cambio de esta aplicación esté publicado en GitHub Pages, abre la web desde el navegador que contiene las estadísticas que quieres conservar. Entra al editor y pulsa **Activar ranking compartido** una sola vez.
 7. Los demás dispositivos podrán abrir la misma web y cargarán el ranking compartido. No actives el ranking desde un navegador que tenga estadísticas incompletas o antiguas.
 
@@ -48,11 +48,11 @@ Si Cloudflare obliga a usar otro subdominio o el nombre del Worker no está disp
 
 Los scripts de comprobación se ejecutan con Node.js y no requieren paquetes externos:
 
-\`\`\`bash
+```bash
 node scripts/validate-inline-js.mjs
 node scripts/test-team-randomization.mjs
 node scripts/test-victory-registration.mjs
 node scripts/test-cloudflare-worker.mjs
-\`\`\`
+```
 
-GitHub Actions ejecuta estas comprobaciones cuando hay cambios en \`main\` o se abre una pull request hacia esa rama.
+GitHub Actions ejecuta estas comprobaciones cuando hay cambios en `main` o se abre una pull request hacia esa rama.
