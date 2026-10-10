@@ -392,6 +392,7 @@
     let sharedRankingInitialized = false;
     let sharedRevision = null;
     let sharedDirty = false;
+    let localChangesWithoutShared = false;
     let sharedSaving = false;
     let sharedConflict = false;
     let pendingSharedState = null;
@@ -451,6 +452,7 @@
         sharedRevision = Number.isInteger(estado.revision) ? estado.revision : 1;
         sharedRankingInitialized = true;
         sharedDirty = false;
+        localChangesWithoutShared = false;
         sharedConflict = false;
         pendingSharedState = null;
         seleccionados = seleccionados.filter(name => Boolean(db[name]));
@@ -480,7 +482,19 @@
             if (payload.initialized && payload.state) {
                 const state = payload.state;
                 if (!sharedRankingInitialized) {
-                    aplicarEstadoCompartido(state);
+                    if (localChangesWithoutShared) {
+                        sharedRankingInitialized = true;
+                        sharedRevision = Number.isInteger(state.revision) ? state.revision : 1;
+                        sharedDirty = true;
+                        sharedConflict = true;
+                        pendingSharedState = state;
+                        mostrarEstadoCompartido(
+                            'Existe una copia compartida, pero este navegador tiene cambios locales sin subir. Exporta una copia y carga el ranking compartido para decidir qué conservar.',
+                            'warning'
+                        );
+                    } else {
+                        aplicarEstadoCompartido(state);
+                    }
                 } else if (Number(state.revision) > Number(sharedRevision)) {
                     if (sharedDirty || sharedSaving || sorteoEnCurso || partidaPendiente) {
                         pendingSharedState = state;
@@ -493,7 +507,11 @@
                         aplicarEstadoCompartido(state);
                     }
                 } else if (!sharedConflict) {
-                    mostrarEstadoCompartido('Ranking compartido conectado · revisión ' + sharedRevision, 'success');
+                    if (sharedDirty) {
+                        programarGuardadoCompartido();
+                    } else {
+                        mostrarEstadoCompartido('Ranking compartido conectado · revisión ' + sharedRevision, 'success');
+                    }
                 }
             } else if (!sharedRankingInitialized) {
                 mostrarEstadoCompartido(
@@ -514,8 +532,12 @@
     }
 
     function programarGuardadoCompartido() {
-        if (!sharedApiReachable || !sharedRankingInitialized || sharedConflict) return;
+        if (!sharedRankingInitialized || sharedConflict) return;
         sharedDirty = true;
+        if (!sharedApiReachable) {
+            mostrarEstadoCompartido('Cambios guardados localmente; el servidor compartido está temporalmente inaccesible.', 'warning');
+            return;
+        }
         mostrarEstadoCompartido('Guardando cambios en el ranking compartido...', 'info');
         if (sharedSaveTimer) clearTimeout(sharedSaveTimer);
         sharedSaveTimer = setTimeout(guardarRankingCompartido, 650);
@@ -558,6 +580,7 @@
             sharedRevision = payload.state.revision;
             const estadoActual = JSON.stringify(estadoLocalParaCompartir());
             sharedDirty = estadoActual !== serializadoEnviado;
+            localChangesWithoutShared = false;
             if (sharedDirty) {
                 programarGuardadoCompartido();
             } else {
@@ -662,7 +685,13 @@
         renderHistorial();
         localStorage.setItem('lol_pure_db_v3', JSON.stringify(db));
         localStorage.setItem('lol_match_history', JSON.stringify(historialPartidas));
-        if (sincronizarCompartido) programarGuardadoCompartido();
+        if (sincronizarCompartido) {
+            if (sharedRankingInitialized) {
+                programarGuardadoCompartido();
+            } else {
+                localChangesWithoutShared = true;
+            }
+        }
     }
 
     function renderRanking() {
