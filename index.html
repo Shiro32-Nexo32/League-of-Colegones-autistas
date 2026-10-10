@@ -766,6 +766,7 @@
         if (partidaPendiente) return alert("Registra primero el equipo ganador de la partida actual.");
         if (!CHAMPIONS.length) return alert("No se han podido cargar los campeones. Comprueba la conexión y recarga la página.");
         if (seleccionados.length < 2) return alert("Selecciona al menos 2 jugadores.");
+        if (seleccionados.length > CHAMPIONS.length) return alert("No hay suficientes campeones distintos para asignar uno a cada jugador.");
 
         sorteoEnCurso = true;
         const botonSorteo = document.getElementById('generar-equipos-button');
@@ -956,6 +957,17 @@
         }).join('');
     }
 
+    function obtenerCampeonesDisponiblesEnPartida() {
+        const campeonesUsados = new Set(
+            ['blue', 'red']
+                .flatMap(equipo => Object.values(campeonesActuales[equipo]))
+                .map(campeon => campeon?.name)
+                .filter(Boolean)
+        );
+
+        return CHAMPIONS.filter(campeon => !campeonesUsados.has(campeon.name));
+    }
+
     function animarPareja(containerId, name) {
         return new Promise(resolve => {
             const container = document.getElementById(containerId);
@@ -978,21 +990,21 @@
                 if(loops++ > maxLoops) {
                     clearInterval(interval);
 
-                    // Nunca repetimos campeón dentro del mismo equipo.
-                    const campeonesUsados = Object.values(campeonesActuales[equipo])
-                        .map(campeon => campeon?.name)
-                        .filter(Boolean);
+                    // Ningún campeón puede repetirse en toda la partida, entre ambos equipos.
+                    const campeonesDisponibles = obtenerCampeonesDisponiblesEnPartida();
 
-                    const campeonesDisponibles = CHAMPIONS.filter(champion =>
-                        !campeonesUsados.includes(champion.name)
-                    );
+                    // Si no quedan opciones, no se asigna un campeón repetido.
+                    if (campeonesDisponibles.length === 0) {
+                        txt.innerText = "Sin campeones disponibles";
+                        img.removeAttribute('src');
+                        resolve();
+                        return;
+                    }
 
                     const campeonFinal =
-                        campeonesDisponibles.length > 0
-                            ? campeonesDisponibles[
-                                Math.floor(Math.random() * campeonesDisponibles.length)
-                            ]
-                            : c;
+                        campeonesDisponibles[
+                            Math.floor(Math.random() * campeonesDisponibles.length)
+                        ];
 
                     img.src = `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${campeonFinal.id}.png`;
                     txt.innerText = campeonFinal.name;
