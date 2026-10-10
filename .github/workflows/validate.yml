@@ -25,3 +25,5 @@ jobs:
         run: node scripts/test-team-randomization.mjs
       - name: Test victory registration and points
         run: node scripts/test-victory-registration.mjs
+      - name: Test Cloudflare shared-state Worker
+        run: node scripts/test-cloudflare-worker.mjs
