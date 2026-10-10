@@ -11,6 +11,7 @@ assert.notEqual(end, -1, 'No se encontró el final de registrarVictoria.');
 const functionSource = html.slice(start, end);
 
 function runRegistration(winner) {
+    let updates = 0;
     const context = {
         partidaPendiente: true,
         equiposActuales: { blue: ['Ana', 'Biel'], red: ['Carla', 'Dani'] },
@@ -32,7 +33,7 @@ function runRegistration(winner) {
         },
         document: { getElementById: () => ({ style: { display: 'block' } }) },
         actualizarInterfaz() {
-            this.updated = (this.updated || 0) + 1;
+            updates += 1;
         },
         alert(message) {
             this.lastAlert = message;
@@ -41,6 +42,7 @@ function runRegistration(winner) {
 
     runInNewContext(functionSource + '\nglobalThis.__registrarVictoria = registrarVictoria;', context);
     context.__registrarVictoria(winner);
+    context.__getUpdates = () => updates;
     return context;
 }
 
@@ -73,7 +75,7 @@ for (const winner of ['blue', 'red']) {
     assert.equal(context.historialPartidas[0].ganador, winner);
     assert.equal(context.historialPartidas[0].mvpBlue, 'Ana');
     assert.equal(context.historialPartidas[0].mvpRed, 'Carla');
-    assert.equal(context.updated, 1);
+    assert.equal(context.__getUpdates(), 1);
     assert.equal(context.partidaPendiente, false);
 
     const firstSnapshot = JSON.stringify({
