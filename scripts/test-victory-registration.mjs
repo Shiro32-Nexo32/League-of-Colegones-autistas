@@ -35,9 +35,7 @@ function runRegistration(winner) {
         actualizarInterfaz() {
             updates += 1;
         },
-        alert(message) {
-            this.lastAlert = message;
-        },
+        alert() {},
     };
 
     runInNewContext(functionSource + '\nglobalThis.__registrarVictoria = registrarVictoria;', context);
