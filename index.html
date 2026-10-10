@@ -108,6 +108,7 @@
         </div>
     </header>
     <div id="test-info" style="font-size: 0.8em; opacity: 0.5; text-align: center;">CONECTANDO CON SERVIDORES DE RIOT...</div>
+    <div id="shared-sync-status" role="status" aria-live="polite" style="font-size:0.9em; text-align:center; margin:10px 0 24px; color:#f0e6d2;">Conectando con el ranking compartido...</div>
     <h1>RANKING</h1>
     <table class="ranking-table">
         <thead><tr><th>Rango</th><th>Invocador</th><th>Puntos</th><th>Victorias</th><th>MVP</th><th>Win Rate</th></tr></thead>
@@ -136,6 +137,8 @@
         <button onclick="nuevoJugador()">+ Nuevo Jugador</button>
         <button onclick="exportarDatos()">Exportar copia</button>
         <button onclick="document.getElementById('backup-input').click()">Importar copia</button>
+        <button id="init-shared-ranking-button" onclick="inicializarRankingCompartido()" style="display:none;">Activar ranking compartido</button>
+        <button id="reload-shared-ranking-button" onclick="recargarRankingCompartido()" style="display:none;">Cargar ranking compartido</button>
         <input id="backup-input" type="file" accept="application/json,.json" style="display:none" onchange="importarDatos(event)">
         <button onclick="reiniciarHistorial()" style="background: #7b1111;">Reiniciar Historial</button>
         <button onclick="cerrarEditor()" style="background: #444;">Guardar Cambios</button>
@@ -177,6 +180,7 @@
     const PIN_SECRET = String.fromCharCode(51, 54, 53, 52);
     let CHAMPIONS = [];
     let VERSION = "14.3.1";
+    const SHARED_STATE_API = "https://koi-sync-coordinator.raulbermudeztena.workers.dev/api/league/state";
 
     function playTick() {
         let a = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
@@ -382,6 +386,289 @@
         .filter(partida => partida && typeof partida === 'object' && Array.isArray(partida.blue) && Array.isArray(partida.red) && ['blue', 'red'].includes(partida.ganador))
         .slice(0, 20);
 
+
+    let sharedApiReachable = false;
+    let sharedStartupReady = false;
+    let sharedRankingInitialized = false;
+    let sharedRevision = null;
+    let sharedDirty = false;
+    let localChangesWithoutShared = false;
+    let sharedSaving = false;
+    let sharedConflict = false;
+    let pendingSharedState = null;
+    let sharedSaveTimer = null;
+
+    function mostrarEstadoCompartido(message, type = 'info') {
+        const status = document.getElementById('shared-sync-status');
+        if (status) {
+            status.textContent = message;
+            status.style.color = type === 'error' ? '#ff9b9b'
+                : type === 'success' ? '#8fe7b1'
+                : type === 'warning' ? '#ffd98a'
+                : '#f0e6d2';
+        }
+        actualizarBotonesEstadoCompartido();
+    }
+
+    function actualizarBotonesEstadoCompartido() {
+        const initButton = document.getElementById('init-shared-ranking-button');
+        const reloadButton = document.getElementById('reload-shared-ranking-button');
+        if (initButton) initButton.style.display = sharedApiReachable && !sharedRankingInitialized ? 'inline-block' : 'none';
+        if (reloadButton) reloadButton.style.display = sharedApiReachable && sharedRankingInitialized ? 'inline-block' : 'none';
+    }
+
+    function estadoLocalParaCompartir() {
+        return {
+            players: JSON.parse(JSON.stringify(db)),
+            history: JSON.parse(JSON.stringify(historialPartidas))
+        };
+    }
+
+    function estadoServidorCoincideConLocal(estado) {
+        if (!estado || !estado.players || !Array.isArray(estado.history)) return false;
+        const estadoServidor = JSON.stringify({ players: estado.players, history: estado.history });
+        return estadoServidor === JSON.stringify(estadoLocalParaCompartir());
+    }
+
+    function aplicarEstadoCompartido(estado) {
+        if (!estado || !estado.players || typeof estado.players !== 'object' || !Array.isArray(estado.history)) return;
+        if (sorteoEnCurso || partidaPendiente) {
+            pendingSharedState = estado;
+            sharedConflict = true;
+            mostrarEstadoCompartido(
+                'Otro dispositivo ha actualizado el ranking mientras hay una partida en curso. Termina la partida y resuelve la sincronización antes de empezar otra.',
+                'warning'
+            );
+            return;
+        }
+
+        db = estado.players;
+        Object.keys(db).forEach(name => {
+            if (!db[name] || typeof db[name] !== 'object' || Array.isArray(db[name])) db[name] = {};
+            db[name].games = enteroNoNegativo(db[name].games);
+            db[name].m = enteroNoNegativo(db[name].m);
+            db[name].w = enteroNoNegativo(db[name].w);
+            db[name].level = nivelSeguro(db[name].level);
+        });
+        historialPartidas = estado.history
+            .filter(partida => partida && typeof partida === 'object' &&
+                Array.isArray(partida.blue) && Array.isArray(partida.red) &&
+                ['blue', 'red'].includes(partida.ganador))
+            .slice(0, 20);
+        sharedRevision = Number.isInteger(estado.revision) ? estado.revision : 1;
+        sharedRankingInitialized = true;
+        sharedDirty = false;
+        localChangesWithoutShared = false;
+        sharedConflict = false;
+        pendingSharedState = null;
+        seleccionados = seleccionados.filter(name => Boolean(db[name]));
+        actualizarInterfaz(false);
+        if (document.getElementById('editor-panel').style.display !== 'none') renderEditor();
+        mostrarEstadoCompartido('Ranking compartido activo · última actualización: ' + (estado.updatedAt || 'ahora'), 'success');
+    }
+
+    async function obtenerEstadoCompartido() {
+        const response = await fetch(SHARED_STATE_API, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) throw new Error('El servidor compartido respondió HTTP ' + response.status + '.');
+        const payload = await response.json();
+        if (!payload || payload.ok !== true) throw new Error(payload?.error || 'Respuesta no válida del servidor compartido.');
+        return payload;
+    }
+
+    async function consultarRankingCompartido() {
+        try {
+            const payload = await obtenerEstadoCompartido();
+            sharedApiReachable = true;
+            sharedStartupReady = true;
+
+            if (payload.initialized && payload.state) {
+                const state = payload.state;
+                if (!sharedRankingInitialized) {
+                    if (localChangesWithoutShared) {
+                        sharedRankingInitialized = true;
+                        sharedRevision = Number.isInteger(state.revision) ? state.revision : 1;
+                        sharedDirty = true;
+                        sharedConflict = true;
+                        pendingSharedState = state;
+                        mostrarEstadoCompartido(
+                            'Existe una copia compartida, pero este navegador tiene cambios locales sin subir. Exporta una copia y carga el ranking compartido para decidir qué conservar.',
+                            'warning'
+                        );
+                    } else {
+                        aplicarEstadoCompartido(state);
+                    }
+                } else if (Number(state.revision) > Number(sharedRevision)) {
+                    if (estadoServidorCoincideConLocal(state)) {
+                        sharedRevision = state.revision;
+                        sharedDirty = false;
+                        localChangesWithoutShared = false;
+                        sharedConflict = false;
+                        pendingSharedState = null;
+                        mostrarEstadoCompartido('Ranking compartido guardado · revisión ' + sharedRevision, 'success');
+                    } else if (sharedDirty || sharedSaving || sorteoEnCurso || partidaPendiente) {
+                        pendingSharedState = state;
+                        sharedConflict = true;
+                        mostrarEstadoCompartido(
+                            'Hay cambios desde otro dispositivo y cambios locales pendientes. Exporta una copia y carga el ranking compartido para resolver el conflicto.',
+                            'warning'
+                        );
+                    } else {
+                        aplicarEstadoCompartido(state);
+                    }
+                } else if (!sharedConflict) {
+                    if (sharedDirty) {
+                        programarGuardadoCompartido();
+                    } else {
+                        mostrarEstadoCompartido('Ranking compartido conectado · revisión ' + sharedRevision, 'success');
+                    }
+                }
+            } else if (!sharedRankingInitialized) {
+                mostrarEstadoCompartido(
+                    'Servidor conectado, pero el ranking compartido aún no está inicializado. Usa «Activar ranking compartido» en el editor, desde el navegador que contiene los datos correctos.',
+                    'warning'
+                );
+            }
+        } catch (error) {
+            sharedStartupReady = true;
+            sharedApiReachable = false;
+            if (sharedRankingInitialized) {
+                mostrarEstadoCompartido('Servidor compartido temporalmente inaccesible. Los cambios siguen guardándose en este navegador, pero están pendientes de sincronización.', 'error');
+            } else {
+                mostrarEstadoCompartido('No se puede conectar al servidor compartido. El ranking funciona en modo local y no se sincroniza con otros dispositivos.', 'error');
+            }
+            console.warn('No se pudo consultar el ranking compartido.', error);
+        }
+    }
+
+    function programarGuardadoCompartido() {
+        if (!sharedRankingInitialized || sharedConflict) return;
+        sharedDirty = true;
+        if (!sharedApiReachable) {
+            mostrarEstadoCompartido('Cambios guardados localmente; el servidor compartido está temporalmente inaccesible.', 'warning');
+            return;
+        }
+        mostrarEstadoCompartido('Guardando cambios en el ranking compartido...', 'info');
+        if (sharedSaveTimer) clearTimeout(sharedSaveTimer);
+        sharedSaveTimer = setTimeout(guardarRankingCompartido, 650);
+    }
+
+    async function guardarRankingCompartido() {
+        sharedSaveTimer = null;
+        if (!sharedApiReachable || !sharedRankingInitialized || sharedConflict || !sharedDirty) return;
+        if (sharedSaving) {
+            if (sharedSaveTimer) clearTimeout(sharedSaveTimer);
+            sharedSaveTimer = setTimeout(guardarRankingCompartido, 500);
+            return;
+        }
+
+        const revisionEnviada = sharedRevision;
+        const estadoEnviado = estadoLocalParaCompartir();
+        const serializadoEnviado = JSON.stringify(estadoEnviado);
+        sharedSaving = true;
+        try {
+            const response = await fetch(SHARED_STATE_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ action: 'save', revision: revisionEnviada, state: estadoEnviado })
+            });
+            const payload = await response.json();
+            if (response.status === 409) {
+                sharedConflict = true;
+                pendingSharedState = payload.state || null;
+                mostrarEstadoCompartido(
+                    'Conflicto de sincronización: otro dispositivo ha cambiado el ranking. Tus cambios locales no se han borrado, pero no se han subido.',
+                    'error'
+                );
+                alert('Otro dispositivo ha cambiado el ranking al mismo tiempo. Tus cambios siguen en este navegador, pero no se han subido. Exporta una copia antes de cargar el ranking compartido.');
+                return;
+            }
+            if (!response.ok || payload?.ok !== true || !payload.state) {
+                throw new Error(payload?.error || 'No se pudieron guardar los cambios compartidos.');
+            }
+
+            sharedRevision = payload.state.revision;
+            const estadoActual = JSON.stringify(estadoLocalParaCompartir());
+            sharedDirty = estadoActual !== serializadoEnviado;
+            localChangesWithoutShared = false;
+            if (sharedDirty) {
+                programarGuardadoCompartido();
+            } else {
+                mostrarEstadoCompartido('Ranking compartido guardado · revisión ' + sharedRevision, 'success');
+            }
+        } catch (error) {
+            sharedDirty = true;
+            sharedApiReachable = false;
+            mostrarEstadoCompartido('No se han podido subir los cambios. Se conserva la copia local; se reintentará al reconectar.', 'error');
+            console.warn('No se pudo guardar el ranking compartido.', error);
+        } finally {
+            sharedSaving = false;
+            if (sharedDirty && !sharedConflict && !sharedSaveTimer) {
+                sharedSaveTimer = setTimeout(guardarRankingCompartido, 1500);
+            }
+        }
+    }
+
+    async function inicializarRankingCompartido() {
+        if (!sharedApiReachable) return alert('El servidor compartido no está disponible. Recarga la página e inténtalo de nuevo.');
+        if (sharedRankingInitialized) return alert('El ranking compartido ya está inicializado.');
+        if (!confirm('Este navegador será la copia inicial para TODOS. Asegúrate de estar usando el navegador que contiene las estadísticas correctas. ¿Publicar estos datos?')) return;
+
+        try {
+            const response = await fetch(SHARED_STATE_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ action: 'initialize', state: estadoLocalParaCompartir() })
+            });
+            const payload = await response.json();
+            if (response.status === 409 && payload.state) {
+                aplicarEstadoCompartido(payload.state);
+                alert('El ranking compartido ya se había inicializado desde otro dispositivo. Se ha cargado esa copia.');
+                return;
+            }
+            if (!response.ok || payload?.ok !== true || !payload.state) {
+                throw new Error(payload?.error || 'No se pudo inicializar el ranking compartido.');
+            }
+            aplicarEstadoCompartido(payload.state);
+            alert('Ranking compartido activado. A partir de ahora, los cambios se guardarán para todos los dispositivos.');
+        } catch (error) {
+            mostrarEstadoCompartido('No se pudo inicializar el ranking compartido: ' + error.message, 'error');
+            alert('No se pudo activar el ranking compartido: ' + error.message);
+        }
+    }
+
+    async function recargarRankingCompartido() {
+        if (!sharedApiReachable) return alert('El servidor compartido no está disponible.');
+        if (sharedDirty || sharedConflict) {
+            const confirmed = confirm('Cargar la copia del servidor sustituirá los cambios locales aún no sincronizados. Exporta primero una copia si quieres conservarlos. ¿Continuar?');
+            if (!confirmed) return;
+        }
+        try {
+            const payload = await obtenerEstadoCompartido();
+            if (!payload.initialized || !payload.state) return alert('Todavía no hay un ranking compartido inicializado.');
+            aplicarEstadoCompartido(payload.state);
+            alert('Se ha cargado el ranking compartido.');
+        } catch (error) {
+            mostrarEstadoCompartido('No se pudo cargar el ranking compartido: ' + error.message, 'error');
+            alert('No se pudo cargar el ranking compartido: ' + error.message);
+        }
+    }
+
+    function iniciarSincronizacionCompartida() {
+        mostrarEstadoCompartido('Conectando con el ranking compartido...', 'info');
+        void consultarRankingCompartido();
+        setInterval(() => { void consultarRankingCompartido(); }, 15000);
+        setTimeout(() => {
+            if (!sharedStartupReady) {
+                sharedStartupReady = true;
+                mostrarEstadoCompartido('El servidor tarda demasiado en responder. Se mantiene el modo local hasta que responda.', 'warning');
+            }
+        }, 8000);
+    }
+
     async function init() {
         const estado = document.getElementById('test-info');
         try {
@@ -401,16 +688,23 @@
             estado.innerText = 'SIN CONEXIÓN CON DATA DRAGON | Ranking e historial locales disponibles';
             console.error('No se pudieron cargar los campeones.', error);
         } finally {
-            actualizarInterfaz();
+            actualizarInterfaz(false);
         }
     }
 
-    function actualizarInterfaz() {
+    function actualizarInterfaz(sincronizarCompartido = true) {
         renderRanking();
         renderSelector();
         renderHistorial();
         localStorage.setItem('lol_pure_db_v3', JSON.stringify(db));
         localStorage.setItem('lol_match_history', JSON.stringify(historialPartidas));
+        if (sincronizarCompartido) {
+            if (sharedRankingInitialized) {
+                programarGuardadoCompartido();
+            } else {
+                localChangesWithoutShared = true;
+            }
+        }
     }
 
     function renderRanking() {
@@ -451,6 +745,9 @@
     }
 
     function togglePlayer(name) {
+        if (!sharedStartupReady) return alert("Espera a que se compruebe el estado del ranking compartido.");
+        if (sharedApiReachable && !sharedRankingInitialized) return alert("El ranking compartido aún no está inicializado. Actívalo desde el editor en el navegador con los datos correctos.");
+        if (sharedConflict) return alert("Hay un conflicto de sincronización. Exporta una copia y carga el ranking compartido antes de iniciar otra partida.");
         if (!accesoPartida) return alert("Introduce el PIN para acceder a la partida.");
         if (sorteoEnCurso || partidaPendiente) return alert("Termina de registrar la partida actual antes de cambiar jugadores.");
         if (!db[name]) return;
@@ -461,6 +758,9 @@
     }
 
     async function lanzarSorteoSequencial() {
+        if (!sharedStartupReady) return alert("Espera a que se compruebe el estado del ranking compartido.");
+        if (sharedApiReachable && !sharedRankingInitialized) return alert("El ranking compartido aún no está inicializado. Actívalo desde el editor en el navegador con los datos correctos.");
+        if (sharedConflict) return alert("Hay un conflicto de sincronización. Exporta una copia y carga el ranking compartido antes de iniciar otra partida.");
         if (!accesoPartida) return alert("Introduce el PIN para acceder a la partida.");
         if (sorteoEnCurso) return alert("El sorteo ya está en curso.");
         if (partidaPendiente) return alert("Registra primero el equipo ganador de la partida actual.");
@@ -508,7 +808,7 @@
             document.querySelectorAll('.mvp-button').forEach(button => { button.disabled = false; });
             partidaPendiente = true;
             document.getElementById('winner-panel').style.display = 'block';
-            actualizarInterfaz();
+            actualizarInterfaz(false);
         } catch (error) {
             console.error('Error al generar la partida.', error);
             partidaPendiente = false;
@@ -765,8 +1065,7 @@
     function reiniciarHistorial() {
         if (!confirm("¿Seguro que quieres borrar las últimas 20 partidas del historial? Esta acción no modifica las estadísticas de los jugadores.")) return;
         historialPartidas = [];
-        localStorage.removeItem('lol_match_history');
-        renderHistorial();
+        actualizarInterfaz();
     }
 
     function nuevoJugador() {
@@ -911,6 +1210,7 @@
 
     configurarEventosDelegados();
     init();
+    iniciarSincronizacionCompartida();
 </script>
 </body>
 </html>

@@ -23,13 +23,24 @@ python -m http.server 8000
 
 Después, abre `http://localhost:8000`. La aplicación necesita conexión a internet para consultar la lista de campeones y sus imágenes en Riot Data Dragon. Si ese servicio no está disponible, el ranking y el historial locales siguen siendo visibles, pero no se pueden generar nuevas partidas.
 
-## Datos y copias de seguridad
+## Ranking compartido y copias de seguridad
 
-El ranking y el historial se guardan en el `localStorage` del navegador, no en un servidor. Por tanto, los datos no se sincronizan automáticamente entre dispositivos ni perfiles de navegador y se pueden perder si se borra el almacenamiento del sitio.
+El ranking y el historial se conservan en el `localStorage` como copia local y, una vez activado el servicio compartido, también se sincronizan con el servidor común. La web consulta cambios cada 15 segundos y sube los cambios después de guardarlos en la interfaz.
 
-Para guardar una copia, entra en el editor y pulsa **Exportar copia**. Esto descarga un JSON con el ranking y el historial. Para restaurarlo, pulsa **Importar copia** y selecciona un archivo exportado por la aplicación. La importación reemplaza los datos actuales, tras pedir confirmación.
+### Primera activación (una sola vez)
 
-Conviene exportar una copia periódicamente, especialmente antes de limpiar los datos del navegador.
+1. Despliega la versión actualizada del Cloudflare Worker desde el repositorio `Shiro32-Nexo32/KOI`, siguiendo su README y ejecutando `npx wrangler@latest deploy` con el `wrangler.toml` local que ya tiene configurado el namespace `SYNC_STATUS`.
+2. Espera a que se publique esta web en GitHub Pages y ábrela en el navegador que contiene las estadísticas correctas.
+3. Introduce el PIN, abre **Modo Editor** y pulsa **Activar ranking compartido**. Confirma únicamente si esa es la copia que quieres conservar como base común.
+4. Después de ver **Ranking compartido activo**, el resto del grupo puede abrir la misma web: recibirá el ranking y el historial del servidor.
+
+**Importante:** la primera activación convierte los datos de ese navegador en la copia común. No combina automáticamente las estadísticas independientes que existan en otros ordenadores. Exporta una copia antes de activarlo si necesitas conservar esos datos.
+
+### Copias de seguridad y conflictos
+
+En el editor, **Exportar copia** descarga un JSON con el ranking y el historial. **Importar copia** reemplaza los datos actuales después de pedir confirmación. Haz copias periódicas.
+
+Si dos dispositivos cambian el ranking al mismo tiempo, el sistema detecta que la revisión del servidor ha cambiado y no sube encima los cambios antiguos de forma silenciosa. En ese caso, exporta primero una copia local y usa **Cargar ranking compartido** para recargar la versión común; habrá que reconciliar manualmente cualquier resultado que no se haya sincronizado.
 
 ## Seguridad
 
