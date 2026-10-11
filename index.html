@@ -561,14 +561,56 @@
     let VERSION = "14.3.1";
     const SHARED_STATE_API = "https://league-of-colegones-sync.raulbermudeztena.workers.dev/api/league/state";
 
+    let sonidoCampeonesContexto = null;
+
+    function prepararSonidosSuaves() {
+        try {
+            const AudioContextClase = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClase) return null;
+            if (!sonidoCampeonesContexto || sonidoCampeonesContexto.state === 'closed') {
+                sonidoCampeonesContexto = new AudioContextClase();
+            }
+            if (sonidoCampeonesContexto.state === 'suspended') {
+                sonidoCampeonesContexto.resume().catch(() => {});
+            }
+            return sonidoCampeonesContexto;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function reproducirTonoSuave(frecuencia, duracion, volumen, retraso = 0) {
+        try {
+            const contexto = prepararSonidosSuaves();
+            if (!contexto) return;
+            const inicio = contexto.currentTime + retraso;
+            const oscilador = contexto.createOscillator();
+            const ganancia = contexto.createGain();
+
+            oscilador.type = 'sine';
+            oscilador.frequency.setValueAtTime(frecuencia, inicio);
+            ganancia.gain.setValueAtTime(0.0001, inicio);
+            ganancia.gain.linearRampToValueAtTime(volumen, inicio + 0.012);
+            ganancia.gain.exponentialRampToValueAtTime(0.0001, inicio + duracion);
+
+            oscilador.connect(ganancia);
+            ganancia.connect(contexto.destination);
+            oscilador.start(inicio);
+            oscilador.stop(inicio + duracion + 0.015);
+        } catch (error) {
+            // El sorteo sigue funcionando aunque el navegador no admita audio.
+        }
+    }
+
     function playTick() {
-        let a = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
-        a.volume = 0.15; a.play();
+        // Pulso breve y discreto en vez de un efecto agudo y repetitivo.
+        reproducirTonoSuave(440 + Math.random() * 55, 0.04, 0.006);
     }
 
     function playBoom() {
-        let a = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3');
-        a.volume = 0.4; a.play();
+        // Dos notas suaves de confirmación, sin explosión ni golpe brusco.
+        reproducirTonoSuave(523.25, 0.13, 0.018);
+        reproducirTonoSuave(659.25, 0.15, 0.013, 0.045);
     }
 
     function leerJSONLocalStorage(clave, valorPredeterminado) {
@@ -772,6 +814,24 @@
         }
 
         return { blue: grande, red: elegida };
+    }
+
+    function colocarJugadorEnPrimerasLineas(equipo, nombrePreferente = 'Shiro') {
+        const clavePreferente = String(nombrePreferente || 'Shiro').trim().toLocaleLowerCase('es-ES');
+        const indiceJugador = equipo.findIndex(nombre =>
+            String(nombre || '').trim().toLocaleLowerCase('es-ES') === clavePreferente
+        );
+
+        // Si solo hay una persona, ya ocupa la primera y única línea posible.
+        if (indiceJugador < 0 || equipo.length <= 1) return [...equipo];
+
+        const jugador = equipo[indiceJugador];
+        const resto = equipo.filter((nombre, indice) => indice !== indiceJugador);
+
+        // La posición se sortea entre todas las líneas menos la última.
+        const indiceDestino = Math.floor(Math.random() * resto.length);
+        resto.splice(indiceDestino, 0, jugador);
+        return resto;
     }
 
     let seleccionados = [];
@@ -1605,6 +1665,7 @@
         if (seleccionados.length < 2) return alert("Selecciona al menos 2 jugadores.");
         if (seleccionados.length > CHAMPIONS.length) return alert("No hay suficientes campeones distintos para asignar uno a cada jugador.");
 
+        prepararSonidosSuaves();
         sorteoEnCurso = true;
         const botonSorteo = document.getElementById('generar-equipos-button');
         botonSorteo.disabled = true;
@@ -1624,6 +1685,10 @@
                 blueSide = equipos.blue;
                 redSide = equipos.red;
             }
+
+            // Shiro conserva equipo, pero su línea se sortea sin permitir la última posición.
+            blueSide = colocarJugadorEnPrimerasLineas(blueSide, 'Shiro');
+            redSide = colocarJugadorEnPrimerasLineas(redSide, 'Shiro');
 
             equiposActuales = { blue: [...blueSide], red: [...redSide] };
             comodinesActivosPartida = [];
