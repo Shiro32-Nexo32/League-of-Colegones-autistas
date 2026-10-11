@@ -147,10 +147,10 @@ assert.match(html, /class="comodin-toggle-button" data-player=/,
     'Cada jugador de los equipos debe tener un cuadrado de payaso junto a su nombre.');
 assert.match(html, /slot-player-name"><b>\$\{escaparHTML\(name\)\}<\/b><button type="button" class="comodin-toggle-button"/,
     'El cuadrado de payaso debe estar al lado del nombre del jugador.');
-assert.match(html, /toggleComodinJugadorPartida\\(botonComodin\\.dataset\\.player\\)/,
+assert.match(html, /toggleComodinJugadorPartida\(botonComodin\.dataset\.player\)/,
     'El clic del cuadrado debe alternar el comodín del jugador de esa línea.');
 assert.match(html, /Permiso para optar al comodín/);
-assert.doesNotMatch(html, /function gestionarComodinPartida\\(\\)/,
+assert.doesNotMatch(html, /function gestionarComodinPartida\(\)/,
     'No debe quedar el antiguo método que pedía escribir un nombre.');
 assert.doesNotMatch(html, /GESTIONAR COMODÍN/,
     'No debe quedar el botón general de gestión del comodín.');
