@@ -86,7 +86,7 @@ const remakeContext = {
     mvpActual: { blue: 'Ana', red: 'Biel' },
     document: { getElementById: () => ({ style: { display: 'block' } }) },
     lanzamientos: 0,
-    lanzarSorteoSequencial() { this.lanzamientos += 1; return 'started'; }
+    lanzarSorteoSequencial() { globalThis.lanzamientos += 1; return 'started'; }
 };
 runInNewContext(remakeSource + '\nglobalThis.__remake = remakePartida;', remakeContext);
 assert.equal(remakeContext.__remake(), 'started');
