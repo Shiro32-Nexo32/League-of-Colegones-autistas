@@ -748,6 +748,14 @@
         .filter(partida => partida && typeof partida === 'object' && Array.isArray(partida.blue) && Array.isArray(partida.red) && ['blue', 'red'].includes(partida.ganador))
         .slice(0, 20);
 
+    // Este chat es local al navegador: no forma parte del estado compartido.
+    const ANALYSIS_CHAT_KEY = 'colegones_analysis_chat_v1';
+    let analysisChatMessages = leerJSONLocalStorage(ANALYSIS_CHAT_KEY, []);
+    if (!Array.isArray(analysisChatMessages)) analysisChatMessages = [];
+    analysisChatMessages = analysisChatMessages
+        .filter(message => message && ['user', 'assistant'].includes(message.role) && typeof message.text === 'string')
+        .slice(-40);
+
 
     let sharedApiReachable = false;
     let sharedStartupReady = false;
@@ -1058,6 +1066,10 @@
         renderRanking();
         renderSelector();
         renderHistorial();
+        renderHomeMetrics();
+        renderPlayerStats();
+        renderAnalysisOverview();
+        renderAnalysisInsights();
         localStorage.setItem('lol_pure_db_v3', JSON.stringify(db));
         localStorage.setItem('lol_match_history', JSON.stringify(historialPartidas));
         if (sincronizarCompartido) {
@@ -1069,16 +1081,338 @@
         }
     }
 
+    function obtenerRankingOrdenado() {
+        return Object.keys(db).map(name => ({
+            name,
+            ...db[name],
+            pts: (enteroNoNegativo(db[name].w) * 10) + (enteroNoNegativo(db[name].m) * 5),
+            winRate: enteroNoNegativo(db[name].games) > 0
+                ? (enteroNoNegativo(db[name].w) / enteroNoNegativo(db[name].games)) * 100
+                : 0
+        })).sort((a, b) => b.pts - a.pts);
+    }
+
     function renderRanking() {
-        const ranking = Object.keys(db).map(name => ({
-            name, ...db[name], pts: (db[name].w * 10) + (db[name].m * 5),
-            winRate: db[name].games > 0 ? (db[name].w / db[name].games) * 100 : 0
-        })).sort((a,b) => b.pts - a.pts);
-        document.getElementById('lista-ranking').innerHTML = ranking.map((j, i) => `
-            <tr><td>${i+1}</td><td>${escaparHTML(j.name)}</td><td>${escaparHTML(j.pts)}</td><td>${escaparHTML(j.w)}</td><td>${escaparHTML(j.m)}</td><td>${escaparHTML(j.winRate.toFixed(1))}%</td></tr>
+        const ranking = obtenerRankingOrdenado();
+        const cuerpo = document.getElementById('lista-ranking');
+        if (!cuerpo) return;
+        if (ranking.length === 0) {
+            cuerpo.innerHTML = '<tr><td colspan="6" class="empty-state">Todavía no hay jugadores en el ranking.</td></tr>';
+            return;
+        }
+        cuerpo.innerHTML = ranking.map((j, i) => `
+            <tr class="${i === 0 ? 'rank-first' : ''}">
+                <td>${i === 0 ? '♛ ' : ''}${i + 1}</td>
+                <td>${escaparHTML(j.name)}</td>
+                <td>${escaparHTML(j.pts)}</td>
+                <td>${escaparHTML(j.w)}</td>
+                <td>${escaparHTML(j.m)}</td>
+                <td>${escaparHTML(j.winRate.toFixed(1))}%</td>
+            </tr>
         `).join('');
     }
 
+    function renderHomeMetrics() {
+        const container = document.getElementById('home-metrics');
+        if (!container) return;
+        const ranking = obtenerRankingOrdenado();
+        const lider = ranking[0];
+        const mvpTotal = ranking.reduce((total, jugador) => total + enteroNoNegativo(jugador.m), 0);
+        const ultima = historialPartidas[0];
+        const ultimoGanador = ultima
+            ? (ultima.ganador === 'blue' ? 'Equipo azul' : 'Equipo rojo')
+            : 'Sin partidas';
+        const leaderName = document.getElementById('home-leader-name');
+        const leaderCaption = document.getElementById('home-leader-caption');
+        if (leaderName) leaderName.textContent = lider ? lider.name : 'Por determinar';
+        if (leaderCaption) leaderCaption.textContent = lider
+            ? lider.pts + ' puntos · ' + lider.w + ' victorias · ' + lider.m + ' MVP'
+            : 'Los resultados registrados marcan la clasificación.';
+        const metrics = [
+            { label: 'Invocadores', value: ranking.length, foot: 'Jugadores en la clasificación' },
+            { label: 'Partidas recientes', value: historialPartidas.length + '/20', foot: 'Guardadas en el historial' },
+            { label: 'MVP del grupo', value: mvpTotal, foot: 'MVP acumulados en el ranking' },
+            { label: 'Último resultado', value: ultimoGanador, foot: ultima ? escaparHTML(ultima.fecha || 'Fecha no registrada') : 'Registra la primera partida', accent: true }
+        ];
+        container.innerHTML = metrics.map(metric => `
+            <article class="metric-card ${metric.accent ? 'accent' : ''}">
+                <div class="metric-label">${metric.label}</div>
+                <div class="metric-value">${metric.value}</div>
+                <div class="metric-foot">${metric.foot}</div>
+            </article>
+        `).join('');
+    }
+
+    function datosJugadoresDePartida(partida, lado) {
+        const nombres = Array.isArray(partida[lado]) ? partida[lado] : [];
+        const datos = Array.isArray(partida[lado + 'Data']) ? partida[lado + 'Data'] : [];
+        return nombres.map((entrada, indice) => {
+            const nombre = typeof entrada === 'string' ? entrada : String(entrada?.name || '');
+            const candidato = datos.find(jugador => jugador && typeof jugador === 'object' && jugador.name === nombre)
+                || datos[indice]
+                || (typeof entrada === 'object' ? entrada : null)
+                || {};
+            const objeto = typeof candidato === 'string' ? { name: candidato } : candidato;
+            return {
+                name: nombre || String(objeto.name || 'Jugador desconocido'),
+                champion: typeof objeto.champion === 'string' && objeto.champion.trim() ? objeto.champion.trim() : null,
+                image: urlImagenCampeonSegura(objeto.image)
+            };
+        });
+    }
+
+    function obtenerEstadisticasRecientesJugador(nombre) {
+        const campeones = {};
+        let partidas = 0;
+        let victorias = 0;
+        historialPartidas.forEach(partida => {
+            const azul = datosJugadoresDePartida(partida, 'blue');
+            const rojo = datosJugadoresDePartida(partida, 'red');
+            const jugadorAzul = azul.find(jugador => jugador.name === nombre);
+            const jugadorRojo = rojo.find(jugador => jugador.name === nombre);
+            const lado = jugadorAzul ? 'blue' : (jugadorRojo ? 'red' : null);
+            if (!lado) return;
+            partidas += 1;
+            const gano = partida.ganador === lado;
+            if (gano) victorias += 1;
+            const jugador = lado === 'blue' ? jugadorAzul : jugadorRojo;
+            if (!jugador.champion) return;
+            if (!campeones[jugador.champion]) {
+                campeones[jugador.champion] = { name: jugador.champion, played: 0, wins: 0, image: jugador.image };
+            }
+            campeones[jugador.champion].played += 1;
+            if (gano) campeones[jugador.champion].wins += 1;
+            if (!campeones[jugador.champion].image && jugador.image) campeones[jugador.champion].image = jugador.image;
+        });
+        const listaCampeones = Object.values(campeones);
+        const masJugado = [...listaCampeones].sort((a, b) => b.played - a.played || b.wins - a.wins || a.name.localeCompare(b.name))[0] || null;
+        const masVictorias = [...listaCampeones].filter(jugador => jugador.wins > 0)
+            .sort((a, b) => b.wins - a.wins || b.played - a.played || a.name.localeCompare(b.name))[0] || null;
+        return {
+            partidas,
+            victorias,
+            winRate: partidas > 0 ? (victorias / partidas) * 100 : 0,
+            campeones: listaCampeones,
+            masJugado,
+            masVictorias
+        };
+    }
+
+    function renderPlayerStats() {
+        const container = document.getElementById('player-stats-list');
+        if (!container) return;
+        const ranking = obtenerRankingOrdenado();
+        if (!ranking.length) {
+            container.innerHTML = '<div class="panel empty-state">Todavía no hay jugadores en el ranking.</div>';
+            return;
+        }
+        container.innerHTML = ranking.map((jugador, indice) => {
+            const recientes = obtenerEstadisticasRecientesJugador(jugador.name);
+            const mejorJugado = recientes.masJugado;
+            const mejorVictorias = recientes.masVictorias;
+            const chip = (campeon, etiqueta, subtitulo) => {
+                if (!campeon) return '';
+                const imagen = campeon.image ? '<img src="' + escaparHTML(campeon.image) + '" alt="' + escaparHTML(campeon.name) + '" loading="lazy">' : '';
+                return '<div class="champion-chip">' + imagen + '<div><strong>' + escaparHTML(etiqueta) + ': ' + escaparHTML(campeon.name) + '</strong><small>' + escaparHTML(subtitulo) + '</small></div></div>';
+            };
+            return `
+                <details class="player-stat-card">
+                    <summary>
+                        <span class="stat-rank">${indice + 1}</span>
+                        <span class="stat-player-name">${escaparHTML(jugador.name)}<span class="stat-player-meta">${escaparHTML(jugador.pts)} puntos · ${escaparHTML(jugador.games)} partidas</span></span>
+                        <span class="summary-stat primary"><strong>${jugador.winRate.toFixed(1)}%</strong><small>Win rate</small></span>
+                        <span class="summary-stat"><strong>${escaparHTML(jugador.w)}</strong><small>Victorias</small></span>
+                        <span class="summary-stat"><strong>${escaparHTML(jugador.m)}</strong><small>MVP</small></span>
+                        <span class="summary-chevron">⌄</span>
+                    </summary>
+                    <div class="player-stat-details">
+                        <div class="player-stat-detail-grid">
+                            <div class="detail-tile"><span>Victorias acumuladas</span><strong>${escaparHTML(jugador.w)}</strong><small>En el ranking completo</small></div>
+                            <div class="detail-tile"><span>Win rate acumulado</span><strong>${jugador.winRate.toFixed(1)}%</strong><small>Victorias / partidas del ranking</small></div>
+                            <div class="detail-tile"><span>Partidas en historial</span><strong>${recientes.partidas}</strong><small>De las últimas 20 guardadas</small></div>
+                            <div class="detail-tile"><span>Win rate reciente</span><strong>${recientes.winRate.toFixed(1)}%</strong><small>Con ${recientes.victorias} victorias en el historial disponible</small></div>
+                        </div>
+                        <div class="champion-insight">
+                            ${chip(mejorJugado, 'Más jugado', mejorJugado ? mejorJugado.played + ' aparición(es) en el historial' : 'Sin datos de campeones')}
+                            ${chip(mejorVictorias, 'Más victorias', mejorVictorias ? mejorVictorias.wins + ' victoria(s) en ' + mejorVictorias.played + ' partida(s)' : 'Aún no hay victorias asociadas a campeones')}
+                        </div>
+                    </div>
+                </details>
+            `;
+        }).join('');
+    }
+
+    function obtenerCampeonesGlobales() {
+        const campeones = {};
+        historialPartidas.forEach(partida => {
+            ['blue', 'red'].forEach(lado => {
+                datosJugadoresDePartida(partida, lado).forEach(jugador => {
+                    if (!jugador.champion) return;
+                    if (!campeones[jugador.champion]) {
+                        campeones[jugador.champion] = { name: jugador.champion, played: 0, wins: 0, image: jugador.image };
+                    }
+                    campeones[jugador.champion].played += 1;
+                    if (partida.ganador === lado) campeones[jugador.champion].wins += 1;
+                    if (!campeones[jugador.champion].image && jugador.image) campeones[jugador.champion].image = jugador.image;
+                });
+            });
+        });
+        return Object.values(campeones);
+    }
+
+    function renderAnalysisOverview() {
+        const container = document.getElementById('analysis-summary');
+        if (!container) return;
+        const ranking = obtenerRankingOrdenado();
+        const masVictorias = [...ranking].sort((a, b) => b.w - a.w || b.pts - a.pts)[0];
+        const masMvp = [...ranking].sort((a, b) => b.m - a.m || b.pts - a.pts)[0];
+        const mejorWR = [...ranking].filter(jugador => jugador.games >= 3).sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0];
+        const campeon = [...obtenerCampeonesGlobales()].sort((a, b) => b.wins - a.wins || b.played - a.played)[0];
+        const values = [
+            { label: 'Líder por puntos', value: ranking[0] ? ranking[0].name : '—', foot: ranking[0] ? ranking[0].pts + ' puntos' : 'Sin jugadores' },
+            { label: 'Más victorias', value: masVictorias ? masVictorias.name : '—', foot: masVictorias ? masVictorias.w + ' victorias' : 'Sin partidas' },
+            { label: 'Rey del MVP', value: masMvp ? masMvp.name : '—', foot: masMvp ? masMvp.m + ' MVP' : 'Sin MVP' },
+            { label: 'Mejor win rate', value: mejorWR ? mejorWR.name : '—', foot: mejorWR ? mejorWR.winRate.toFixed(1) + '% · mínimo 3 partidas' : 'Mínimo 3 partidas' }
+        ];
+        container.innerHTML = values.map((item, index) => `
+            <article class="metric-card ${index === 0 ? 'accent' : ''}">
+                <div class="metric-label">${item.label}</div><div class="metric-value">${escaparHTML(item.value)}</div><div class="metric-foot">${escaparHTML(item.foot)}</div>
+            </article>
+        `).join('');
+    }
+
+    function renderAnalysisInsights() {
+        const container = document.getElementById('analysis-insights');
+        if (!container) return;
+        const ranking = obtenerRankingOrdenado();
+        const top = ranking[0];
+        const champions = obtenerCampeonesGlobales();
+        const champWins = [...champions].sort((a, b) => b.wins - a.wins || b.played - a.played)[0];
+        const champPicked = [...champions].sort((a, b) => b.played - a.played || b.wins - a.wins)[0];
+        const matches = historialPartidas.length;
+        const entries = [
+            { label: 'Estado de la clasificación', value: top ? top.name : 'Sin líder', text: top ? 'Encabeza el ranking con ' + top.pts + ' puntos.' : 'Añadid jugadores y registrad resultados.' },
+            { label: 'Campeón con más victorias', value: champWins ? champWins.name : 'Sin datos', text: champWins ? champWins.wins + ' victorias en ' + champWins.played + ' aparición(es) del historial.' : 'Se necesitan partidas registradas con los campeones guardados.' },
+            { label: 'Campeón más repetido', value: champPicked ? champPicked.name : 'Sin datos', text: champPicked ? 'Ha aparecido ' + champPicked.played + ' veces entre los jugadores del historial.' : 'Todavía no hay campeones disponibles para analizar.' },
+            { label: 'Muestra disponible', value: matches + ' / 20 partidas', text: 'El historial se limita a las últimas 20 partidas, no a todas las jugadas.' }
+        ];
+        container.innerHTML = entries.map(item => `
+            <article class="insight-card"><div class="insight-label">${item.label}</div><strong>${escaparHTML(item.value)}</strong><p>${escaparHTML(item.text)}</p></article>
+        `).join('');
+    }
+
+    function normalizarPreguntaAnalisis(texto) {
+        return String(texto || '').toLocaleLowerCase('es-ES').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function generarRespuestaAnalisis(pregunta) {
+        const q = normalizarPreguntaAnalisis(pregunta);
+        const ranking = obtenerRankingOrdenado();
+        if (!ranking.length) return 'Todavía no hay datos suficientes. Cuando añadáis jugadores y registréis partidas, podré analizar el ranking.';
+        const lider = ranking[0];
+        const porVictorias = [...ranking].sort((a, b) => b.w - a.w || b.pts - a.pts)[0];
+        const porMvp = [...ranking].sort((a, b) => b.m - a.m || b.pts - a.pts)[0];
+        const porWR = [...ranking].filter(jugador => jugador.games >= 3).sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0];
+        const campeones = obtenerCampeonesGlobales();
+        const champWins = [...campeones].sort((a, b) => b.wins - a.wins || b.played - a.played)[0];
+        const champPlayed = [...campeones].sort((a, b) => b.played - a.played || b.wins - a.wins)[0];
+        if (q.includes('campeon') || q.includes('champion') || q.includes('pick')) {
+            if (!champPlayed) return 'Todavía no tengo campeones registrados en el historial. Cuando se guarden partidas con sus campeones, podré decirte cuáles aparecen más y cuáles han ganado más.';
+            if (q.includes('mas jugado') || q.includes('mas repetido') || q.includes('aparece')) {
+                return champPlayed.name + ' es el campeón más repetido: aparece ' + champPlayed.played + ' veces en el historial disponible.';
+            }
+            if (q.includes('victoria') || q.includes('gan') || q.includes('mejor') || q.includes('fuerte')) {
+                return champWins
+                    ? champWins.name + ' lidera por victorias registradas: ' + champWins.wins + ' victoria(s) en ' + champWins.played + ' aparición(es). Esto solo usa las últimas ' + historialPartidas.length + ' partidas guardadas.'
+                    : 'Aún no hay victorias asociadas a campeones en el historial disponible.';
+            }
+            return 'El campeón más repetido es ' + champPlayed.name + ' (' + champPlayed.played + ' apariciones). Por victorias, el que encabeza ahora es ' + (champWins ? champWins.name + ' con ' + champWins.wins : 'ninguno aún') + '. Solo cuento los campeones de las últimas ' + historialPartidas.length + ' partidas guardadas.';
+        }
+        if (q.includes('mvp')) return porMvp ? porMvp.name + ' es quien más MVP acumula: ' + porMvp.m + '. En puntos de ranking, cada MVP suma 5 puntos.' : 'Todavía no hay MVP registrados.';
+        if (q.includes('win rate') || q.includes('winrate') || q.includes('porcentaje') || q.includes('ratio')) {
+            return porWR
+                ? 'Entre quienes han jugado al menos 3 partidas, el mejor win rate acumulado es ' + porWR.name + ' con ' + porWR.winRate.toFixed(1) + '% (' + porWR.w + ' victorias de ' + porWR.games + ' partidas).'
+                : 'Aún no hay nadie con 3 partidas acumuladas, así que prefiero no destacar un porcentaje con una muestra demasiado pequeña.';
+        }
+        if (q.includes('pierde') || q.includes('derrota') || q.includes('peor')) {
+            const peor = [...ranking].sort((a, b) => (b.games - b.w) - (a.games - a.w) || a.pts - b.pts)[0];
+            return peor ? peor.name + ' es quien acumula más partidas sin victoria según el ranking: ' + Math.max(0, peor.games - peor.w) + '. No significa que haya perdido todas las partidas recientes; las estadísticas acumuladas son independientes del historial de 20 partidas.' : 'No hay datos suficientes para analizar derrotas.';
+        }
+        if (q.includes('victoria') || q.includes('victorias') || q.includes('gana') || q.includes('ganador')) {
+            return porVictorias ? porVictorias.name + ' lidera en victorias acumuladas con ' + porVictorias.w + '. En caso de empate, uso los puntos totales como desempate.' : 'Todavía no hay victorias registradas.';
+        }
+        if (q.includes('resumen') || q.includes('partida') || q.includes('grupo') || q.includes('equipo')) {
+            const blue = historialPartidas.filter(partida => partida.ganador === 'blue').length;
+            const red = historialPartidas.filter(partida => partida.ganador === 'red').length;
+            return 'En el historial hay ' + historialPartidas.length + ' partida(s): ' + blue + ' victorias del equipo azul y ' + red + ' del rojo. El líder general por puntos es ' + lider.name + ' con ' + lider.pts + '. El historial conserva solo las últimas 20, mientras que las victorias y MVP del ranking son acumulados.';
+        }
+        return 'Ahora mismo lidera ' + lider.name + ' con ' + lider.pts + ' puntos (' + lider.w + ' victorias y ' + lider.m + ' MVP). Cada victoria vale 10 puntos y cada MVP, 5. Puedes preguntarme también por las victorias, los MVP, el win rate o los campeones.';
+    }
+
+    function renderAnalysisChat() {
+        const container = document.getElementById('analysis-chat');
+        if (!container) return;
+        if (analysisChatMessages.length === 0) {
+            container.innerHTML = '<div class="chat-welcome"><strong>¡Buenas, invocador!</strong><p>Pregúntame quién va liderando, quién domina los MVP o qué campeones han conseguido más victorias. Responderé usando las estadísticas registradas en esta web.</p></div>';
+            return;
+        }
+        container.innerHTML = analysisChatMessages.map(message => `
+            <div class="chat-message ${message.role === 'user' ? 'user' : 'assistant'}">
+                <span class="chat-message-label">${message.role === 'user' ? 'Tú' : 'Analista SG'}</span>
+                <div class="chat-message-bubble">${escaparHTML(message.text)}</div>
+            </div>
+        `).join('');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function preguntarAnalisis(texto) {
+        const pregunta = String(texto || '').trim();
+        if (!pregunta) return;
+        analysisChatMessages.push({ role: 'user', text: pregunta });
+        analysisChatMessages.push({ role: 'assistant', text: generarRespuestaAnalisis(pregunta) });
+        analysisChatMessages = analysisChatMessages.slice(-40);
+        localStorage.setItem(ANALYSIS_CHAT_KEY, JSON.stringify(analysisChatMessages));
+        renderAnalysisChat();
+    }
+
+    function enviarMensajeAnalisis(event) {
+        if (event) event.preventDefault();
+        const input = document.getElementById('analysis-input');
+        if (!input) return;
+        const pregunta = input.value.trim();
+        if (!pregunta) return;
+        preguntarAnalisis(pregunta);
+        input.value = '';
+        input.focus();
+    }
+
+    function navegarA(pagina) {
+        const permitidas = ['inicio', 'historial', 'jugadores', 'analisis', 'partida'];
+        if (!permitidas.includes(pagina)) pagina = 'inicio';
+        document.querySelectorAll('.page-view').forEach(vista => vista.classList.toggle('active', vista.id === 'view-' + pagina));
+        document.querySelectorAll('.nav-link[data-page]').forEach(boton => boton.classList.toggle('active', boton.dataset.page === pagina));
+        const titulos = {
+            inicio: ['SG · TABLERO DEL GRUPO', 'Inicio'],
+            historial: ['REGISTRO DE LA GRIETA', 'Historial de partidas'],
+            jugadores: ['RANKING INDIVIDUAL', 'Estadísticas de jugadores'],
+            analisis: ['LECTURA DEL GRUPO', 'Análisis del grupo'],
+            partida: ['SG · MODO DE JUEGO', 'Nueva partida']
+        };
+        const titulo = titulos[pagina] || titulos.inicio;
+        const eyebrow = document.getElementById('page-eyebrow');
+        const heading = document.getElementById('page-heading');
+        if (eyebrow) eyebrow.textContent = titulo[0];
+        if (heading) heading.textContent = titulo[1];
+        if (pagina === 'historial') renderHistorial();
+        if (pagina === 'jugadores') renderPlayerStats();
+        if (pagina === 'analisis') {
+            renderAnalysisOverview();
+            renderAnalysisInsights();
+            renderAnalysisChat();
+        }
+        if (pagina === 'partida' && accesoPartida) renderSelector();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     function renderSelector() {
         const grid = document.getElementById('grid-jugadores');
         const bloqueado = sorteoEnCurso || partidaPendiente;
@@ -1092,7 +1426,11 @@
     }
 
     function desbloquearPartida() {
-        if (accesoPartida) return;
+        navegarA('partida');
+        if (accesoPartida) {
+            document.getElementById('zona-protegida').style.display = 'block';
+            return;
+        }
         document.getElementById('pin-panel').style.display = 'block';
         document.getElementById('pin-input').value = '';
         document.getElementById('pin-input').focus();
@@ -1104,6 +1442,7 @@
         accesoPartida = true;
         document.getElementById('pin-panel').style.display = 'none';
         document.getElementById('zona-protegida').style.display = 'block';
+        navegarA('partida');
     }
 
     function togglePlayer(name) {
@@ -1253,14 +1592,11 @@
 
 
     function abrirHistorial() {
-        renderHistorial();
-        document.getElementById('history-modal').style.display = 'block';
+        navegarA('historial');
     }
 
-    function cerrarHistorial(event) {
-        if (!event || event.target.id === 'history-modal' || event.currentTarget?.tagName === 'BUTTON') {
-            document.getElementById('history-modal').style.display = 'none';
-        }
+    function cerrarHistorial() {
+        navegarA('inicio');
     }
 
     function renderHistorial() {
@@ -1268,53 +1604,44 @@
         if (!container) return;
 
         if (historialPartidas.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#f0e6d2;">Todavía no hay partidas registradas.</p>';
+            container.innerHTML = '<div class="empty-state">Todavía no hay partidas registradas. Cuando acabéis la primera, aparecerá aquí con sus equipos, campeones y MVP.</div>';
             return;
         }
 
         container.innerHTML = historialPartidas.map((partida, index) => {
             const nombreGanador = partida.ganador === 'blue' ? 'EQUIPO AZUL' : 'EQUIPO ROJO';
-            const nombrePerdedor = partida.perdedor === 'blue' ? 'EQUIPO AZUL' : 'EQUIPO ROJO';
-            const blueNames = Array.isArray(partida.blue) ? partida.blue : [];
-            const redNames = Array.isArray(partida.red) ? partida.red : [];
-            const blueData = Array.isArray(partida.blueData) ? partida.blueData : blueNames.map(name => ({ name, champion: null, image: null }));
-            const redData = Array.isArray(partida.redData) ? partida.redData : redNames.map(name => ({ name, champion: null, image: null }));
-
-            const renderHistoryPlayers = (players) => players.map(rawPlayer => {
-                const player = typeof rawPlayer === 'string'
-                    ? { name: rawPlayer, champion: null, image: null }
-                    : (rawPlayer && typeof rawPlayer === 'object' ? rawPlayer : { name: 'Desconocido' });
+            const blueData = datosJugadoresDePartida(partida, 'blue');
+            const redData = datosJugadoresDePartida(partida, 'red');
+            const renderHistoryPlayers = players => players.map(player => {
                 const imageUrl = urlImagenCampeonSegura(player.image);
                 const nombre = escaparHTML(player.name || 'Jugador desconocido');
                 const campeon = escaparHTML(player.champion || 'Campeón no registrado');
                 return `
                     <div class="history-player">
-                        ${imageUrl ? `<img src="${escaparHTML(imageUrl)}" alt="${campeon}" loading="lazy">` : ''}
-                        <div>
-                            <strong>${nombre}</strong>
-                            <small>${campeon}</small>
-                        </div>
+                        ${imageUrl ? '<img src="' + escaparHTML(imageUrl) + '" alt="' + campeon + '" loading="lazy">' : ''}
+                        <div><strong>${nombre}</strong><small>${campeon}</small></div>
                     </div>
                 `;
             }).join('');
 
             return `
-                <div class="history-match">
-                    <h3>PARTIDA #${historialPartidas.length - index} · ${escaparHTML(partida.fecha || 'Fecha desconocida')}</h3>
+                <article class="history-match">
+                    <div class="history-match-head">
+                        <h3>PARTIDA #${historialPartidas.length - index}</h3>
+                        <small>${escaparHTML(partida.fecha || 'Fecha desconocida')}</small>
+                    </div>
                     <div class="history-team">
-                        <strong style="color:var(--blue-bright)">EQUIPO AZUL</strong>
+                        <div class="history-team-title blue"><span>●</span> EQUIPO AZUL</div>
                         <div class="history-players">${renderHistoryPlayers(blueData)}</div>
-                        <div style="margin-top:8px;">MVP: <strong>${escaparHTML(partida.mvpBlue || 'Sin registrar')}</strong></div>
+                        <div class="history-mvp">MVP: <strong>${escaparHTML(partida.mvpBlue || 'Sin registrar')}</strong></div>
                     </div>
                     <div class="history-team">
-                        <strong style="color:var(--red)">EQUIPO ROJO</strong>
+                        <div class="history-team-title red"><span>●</span> EQUIPO ROJO</div>
                         <div class="history-players">${renderHistoryPlayers(redData)}</div>
-                        <div style="margin-top:8px;">MVP: <strong>${escaparHTML(partida.mvpRed || 'Sin registrar')}</strong></div>
+                        <div class="history-mvp">MVP: <strong>${escaparHTML(partida.mvpRed || 'Sin registrar')}</strong></div>
                     </div>
-                    <div class="history-winner">
-                        GANADOR: ${nombreGanador} · PERDEDOR: ${nombrePerdedor}
-                    </div>
-                </div>
+                    <div class="history-winner">✓ GANADOR: ${nombreGanador}</div>
+                </article>
             `;
         }).join('');
     }
