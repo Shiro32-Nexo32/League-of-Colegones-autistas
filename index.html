@@ -298,6 +298,8 @@
     .slot.visible { opacity: 1; }
     .slot img { width: 42px; height: 42px; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; }
     .slot.active { border-color: rgba(232,199,120,.25); background: rgba(232,199,120,.045); }
+    .champion-remake-button { flex: 0 0 auto; padding: 7px 8px; border: 1px solid rgba(194,139,255,.3); border-radius: 8px; color: #d8b4ff; background: rgba(133,77,195,.09); font-size: .62rem; font-weight: 800; white-space: nowrap; }
+    .champion-remake-button:not(:disabled):hover { border-color: rgba(194,139,255,.6); background: rgba(133,77,195,.18); }
     .mvp-button { margin-left: auto; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; color: #90a3be; background: rgba(255,255,255,.04); font-size: .68rem; }
     .mvp-button.selected { border-color: rgba(232,199,120,.55); color: var(--gold-strong); background: rgba(232,199,120,.11); }
     footer { max-width: 1500px; margin: 28px auto 0; padding: 14px 0 0; border-top: 1px solid var(--line); color: #586d88; font-size: .67rem; }
@@ -1598,6 +1600,7 @@
             }
 
             document.querySelectorAll('.mvp-button').forEach(button => { button.disabled = false; });
+            document.querySelectorAll('.champion-remake-button').forEach(button => { button.disabled = false; });
             partidaPendiente = true;
             document.getElementById('winner-panel').style.display = 'block';
             actualizarBotonesMVPComodin();
@@ -1754,15 +1757,48 @@
         }).join('');
     }
 
-    function obtenerCampeonesDisponiblesEnPartida() {
+    function obtenerCampeonesDisponiblesEnPartida(excluirEquipo = null, excluirJugador = null) {
         const campeonesUsados = new Set(
             ['blue', 'red']
-                .flatMap(equipo => Object.values(campeonesActuales[equipo]))
-                .map(campeon => campeon?.name)
+                .flatMap(equipo => Object.entries(campeonesActuales[equipo])
+                    .filter(([nombre]) => !(equipo === excluirEquipo && nombre === excluirJugador))
+                    .map(([, campeon]) => campeon?.name))
                 .filter(Boolean)
         );
 
         return CHAMPIONS.filter(campeon => !campeonesUsados.has(campeon.name));
+    }
+
+    function remakeCampeon(equipo, nombre) {
+        if (!partidaPendiente || sorteoEnCurso || !['blue', 'red'].includes(equipo)) return;
+        if (!equiposActuales[equipo].includes(nombre) || !db[nombre]) return;
+
+        const campeonActual = campeonesActuales[equipo][nombre];
+        if (!campeonActual) return alert('Todavía no hay un campeón asignado para este jugador.');
+
+        const disponibles = obtenerCampeonesDisponiblesEnPartida(equipo, nombre)
+            .filter(campeon => campeon.name !== campeonActual.name);
+        if (disponibles.length === 0) {
+            return alert('No quedan campeones distintos libres para este jugador. Puedes rehacer los equipos y campeones completos con Remake.');
+        }
+
+        const campeonNuevo = disponibles[Math.floor(Math.random() * disponibles.length)];
+        const container = document.getElementById('slots-' + equipo);
+        const slot = [...container.querySelectorAll('.slot')]
+            .find(elemento => elemento.querySelector('.mvp-button')?.dataset.player === nombre);
+        if (!slot) return;
+
+        const imagen = slot.querySelector('img');
+        const textoCampeon = slot.querySelector('.champ-name');
+        const urlImagen = 'https://ddragon.leagueoflegends.com/cdn/' + VERSION + '/img/champion/' + campeonNuevo.id + '.png';
+
+        campeonesActuales[equipo][nombre] = { name: campeonNuevo.name, image: urlImagen };
+        imagen.src = urlImagen;
+        imagen.alt = campeonNuevo.name;
+        imagen.style.filter = 'none';
+        textoCampeon.textContent = campeonNuevo.name;
+        slot.classList.add('active');
+        playBoom();
     }
 
     function animarPareja(containerId, name) {
@@ -1771,7 +1807,7 @@
             const slot = document.createElement('div');
             slot.className = 'slot visible';
             const equipo = containerId.replace("slots-", "");
-            slot.innerHTML = `<img src="" alt="" style="filter:grayscale(1)"> <div><b>${escaparHTML(name)}</b><br><small class="champ-name">...</small></div><button class="mvp-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" disabled>MVP</button>`;
+            slot.innerHTML = `<img src="" alt="" style="filter:grayscale(1)"> <div><b>${escaparHTML(name)}</b><br><small class="champ-name">...</small></div><button type="button" class="champion-remake-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" aria-label="Volver a sortear el campeón de ${escaparHTML(name)}" title="Cambiar solo este campeón" disabled>↻ CHAMP</button><button class="mvp-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" disabled>MVP</button>`;
             container.appendChild(slot);
             const img = slot.querySelector('img');
             const txt = slot.querySelector('.champ-name');
@@ -2003,6 +2039,11 @@
 
         ['blue', 'red'].forEach(equipo => {
             document.getElementById('slots-' + equipo).addEventListener('click', event => {
+                const botonRemakeCampeon = event.target.closest('.champion-remake-button');
+                if (botonRemakeCampeon) {
+                    remakeCampeon(botonRemakeCampeon.dataset.equipo, botonRemakeCampeon.dataset.player);
+                    return;
+                }
                 const boton = event.target.closest('.mvp-button');
                 if (boton) registrarMVP(boton.dataset.equipo, boton.dataset.player, boton);
             });
