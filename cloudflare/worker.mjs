@@ -52,7 +52,20 @@ function normalizeState(input) {
       ["blue", "red"].includes(match.ganador))
     .slice(0, 20);
 
-  return { players, history };
+  // Keep the Comodín eligibility list in shared state. Older clients/states
+  // without this field retain the original Gordi default when that player exists.
+  const playersByNormalizedName = new Map(
+    Object.keys(players).map(name => [name.toLocaleLowerCase("es-ES"), name])
+  );
+  const rawAllowed = Array.isArray(input.comodinAllowed)
+    ? input.comodinAllowed
+    : [Object.keys(players).find(name => name.trim().toLocaleLowerCase("es-ES") === "gordi")].filter(Boolean);
+  const comodinAllowed = [...new Set(rawAllowed.slice(0, 100).map(name => {
+    const key = String(name || "").trim().toLocaleLowerCase("es-ES");
+    return playersByNormalizedName.get(key) || null;
+  }).filter(Boolean))];
+
+  return { players, history, comodinAllowed };
 }
 
 async function readState(env) {
