@@ -119,7 +119,7 @@ function runToggle(nombre, permitidos, activos = [], mvpNombre = null) {
         actualizarBotonesMVPComodin() { updates += 1; },
         alert: message => alerts.push(message)
     };
-    runInNewContext(toggleSource + '\\nglobalThis.__toggle = toggleComodinJugadorPartida;', context);
+    runInNewContext(toggleSource + '\nglobalThis.__toggle = toggleComodinJugadorPartida;', context);
     context.__toggle(nombre);
     return { context, alerts, getUpdates: () => updates };
 }
@@ -145,7 +145,7 @@ assert.equal(mvpActivado.context.mvpActual.blue, null, 'Un jugador con comodín 
 
 assert.match(html, /class="comodin-toggle-button" data-player=/,
     'Cada jugador de los equipos debe tener un cuadrado de payaso junto a su nombre.');
-assert.match(html, /slot-player-name"><b>\\$\\{escaparHTML\\(name\\)\\}<\\/b><button type="button" class="comodin-toggle-button"/,
+assert.match(html, /slot-player-name"><b>\$\{escaparHTML\(name\)\}<\/b><button type="button" class="comodin-toggle-button"/,
     'El cuadrado de payaso debe estar al lado del nombre del jugador.');
 assert.match(html, /toggleComodinJugadorPartida\\(botonComodin\\.dataset\\.player\\)/,
     'El clic del cuadrado debe alternar el comodín del jugador de esa línea.');
