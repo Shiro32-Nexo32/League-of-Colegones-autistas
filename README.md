@@ -5,7 +5,7 @@ Aplicación web estática para organizar partidas personalizadas de League of Le
 ## Funcionalidades
 
 - Interfaz responsive tipo dashboard con navegación compacta: Inicio, Historial, Estadísticas de jugadores, Análisis y Nueva partida.
-- «Comodín de Autista» configurable desde el editor: puedes autorizar a cualquier jugador y escoger quién lo usa en cada partida; su resultado de equipo se conserva, pero no suma sus estadísticas individuales de esa partida.
+- Etiqueta interna configurable desde el editor para excluir automáticamente de las estadísticas individuales a los jugadores marcados en cada partida. La etiqueta no aparece en la selección, equipos ni historial público; el resultado del equipo sigue contando para sus compañeros.
 - Botón «Remake» tras el sorteo para volver a generar equipos y campeones con los mismos participantes, sin registrar el sorteo descartado ni modificar estadísticas.
 - Estadísticas de campeones por jugador basadas en las últimas 20 partidas conservadas.
 - Analista automático en formato chat: usa reglas y estadísticas locales, no un modelo de IA externo. El historial de ese chat se guarda solo en el navegador y no se sincroniza.
@@ -37,7 +37,7 @@ Si Cloudflare obliga a usar otro subdominio o el nombre del Worker no está disp
 
 1. En el panel de Cloudflare, abre **Workers & Pages → KV** y crea un espacio KV nuevo llamado `COLEGONES_SHARED_STATE`. No selecciones el espacio KV de KOI.
 2. Abre **Workers & Pages → Create → Worker** y crea un Worker llamado `league-of-colegones-sync`.
-3. En el editor de código del Worker, reemplaza el ejemplo por el contenido completo de `cloudflare/worker.mjs` de este repositorio y guarda/despliega el Worker. Cuando una actualización del proyecto cambie ese archivo, tendrás que repetir este paso para que el Worker activo conserve los nuevos campos de configuración (incluida la lista de jugadores autorizados al comodín).
+3. En el editor de código del Worker, reemplaza el ejemplo por el contenido completo de `cloudflare/worker.mjs` de este repositorio y guarda/despliega el Worker. Cuando una actualización del proyecto cambie ese archivo, tendrás que repetir este paso para que el Worker activo conserve los nuevos campos de configuración (incluida la lista de etiquetas internas de exclusión estadística).
 4. En la configuración del Worker, abre **Settings → Bindings**, añade una vinculación **KV Namespace** con el nombre de variable `COLEGONES_STATE` y selecciona el espacio `COLEGONES_SHARED_STATE` creado en el primer paso. Guarda y vuelve a desplegar si Cloudflare lo solicita.
 5. Comprueba que la URL del Worker acaba en `/api/league/state` y responde con JSON indicando `"initialized": false` antes de activar el ranking.
 6. Cuando el cambio de esta aplicación esté publicado en GitHub Pages, abre la web desde el navegador que contiene las estadísticas que quieres conservar. Entra al editor y pulsa **Activar ranking compartido** una sola vez.
