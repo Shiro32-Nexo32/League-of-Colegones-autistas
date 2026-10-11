@@ -36,7 +36,7 @@ function runRegistration(winner, jugadoresEtiquetados = ['gordi']) {
         actualizarInterfaz() {},
         alert() {}
     };
-    runInNewContext(functionSource + '\\nglobalThis.__register = registrarVictoria;', context);
+    runInNewContext(functionSource + '\nglobalThis.__register = registrarVictoria;', context);
     context.__register(winner);
     return context;
 }
@@ -99,7 +99,7 @@ const remakeContext = {
     document: { getElementById: () => ({ style: { display: 'block' } }) },
     lanzarSorteoSequencial() { launchCount += 1; return 'started'; }
 };
-runInNewContext(remakeSource + '\\nglobalThis.__remake = remakePartida;', remakeContext);
+runInNewContext(remakeSource + '\nglobalThis.__remake = remakePartida;', remakeContext);
 assert.equal(remakeContext.__remake(), 'started');
 assert.equal(remakeContext.partidaPendiente, false, 'El remake descarta el sorteo sin registrar el resultado.');
 assert.equal(remakeContext.mvpElegido.blue, false, 'El remake debe limpiar el MVP azul anterior.');
