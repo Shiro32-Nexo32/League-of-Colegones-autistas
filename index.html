@@ -1668,7 +1668,7 @@
             return alert("No se puede registrar la partida porque falta un jugador en el ranking. Revisa los datos antes de continuar.");
         }
 
-        const comodinUsado = comodinAplicaEnPartidaActual()
+        const comodinUsado = typeof comodinAutistaActivo !== 'undefined' && comodinAutistaActivo && partidaPendiente
             ? jugadoresDeLaPartida.find(name => String(name).trim().toLocaleLowerCase('es-ES') === 'gordi') || null
             : null;
 
