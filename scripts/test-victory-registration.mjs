@@ -14,6 +14,8 @@ function runRegistration(winner) {
     let updates = 0;
     const context = {
         partidaPendiente: true,
+        comodinPermitidos: [],
+        esJugadorPermitidoComodin: () => false,
         equiposActuales: { blue: ['Ana', 'Biel'], red: ['Carla', 'Dani'] },
         db: {
             Ana: { w: 2, m: 1, games: 5, level: 4 },
