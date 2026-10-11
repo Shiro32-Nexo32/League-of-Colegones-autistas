@@ -285,6 +285,15 @@
     }
     .comodin-toggle { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; min-width: 0; }
     .comodin-toggle input { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; accent-color: #c58cff; cursor: pointer; }
+    .comodin-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .comodin-player-option { display: flex; align-items: center; gap: 7px; padding: 8px 10px; border: 1px solid rgba(194,139,255,.23); border-radius: 9px; background: rgba(133,77,195,.07); cursor: pointer; }
+    .comodin-player-option input { width: 16px; height: 16px; margin: 0; accent-color: #c58cff; }
+    .comodin-editor-config { margin: 20px 0 8px; padding: 16px; border: 1px solid rgba(194,139,255,.22); border-radius: 12px; background: rgba(133,77,195,.055); }
+    .comodin-editor-config h3 { margin: 0 0 6px; color: #e8d5ff; font-size: .87rem; }
+    .comodin-editor-config p { margin: 0 0 12px; color: var(--muted); font-size: .74rem; line-height: 1.5; }
+    .comodin-permitidos-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 7px; }
+    .comodin-allowed-option { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; color: #cbd7e8; background: rgba(255,255,255,.025); font-size: .75rem; font-weight: 700; cursor: pointer; }
+    .comodin-allowed-option input { width: 16px; height: 16px; margin: 0; accent-color: #c58cff; }
     .comodin-copy strong { display: block; color: #e8d5ff; font-size: .83rem; letter-spacing: .015em; }
     .comodin-copy small { display: block; max-width: 640px; margin-top: 5px; color: #a9a0c4; font-size: .72rem; line-height: 1.5; }
     .comodin-status { flex: 0 0 auto; padding: 6px 8px; border: 1px solid rgba(194, 139, 255, .25); border-radius: 99px; color: #d8b4ff; background: rgba(133, 77, 195, .09); font-size: .61rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
@@ -515,6 +524,11 @@
                                 <tbody id="tabla-editor"></tbody>
                             </table>
                         </div>
+                        <div class="comodin-editor-config">
+                            <h3>Jugadores que pueden usar el Comodín de Autista</h3>
+                            <p>Marca quién puede activarlo al preparar una partida. Solo una persona podrá usarlo en cada partida.</p>
+                            <div id="comodin-permitidos-list" class="comodin-permitidos-list"></div>
+                        </div>
                         <div class="editor-actions">
                             <button type="button" onclick="nuevoJugador()">＋ Nuevo jugador</button>
                             <button type="button" onclick="exportarDatos()">Exportar copia</button>
@@ -534,19 +548,18 @@
                         </div>
                         <div id="grid-jugadores" class="selector-grid"></div>
                         <div id="comodin-autista-control" class="comodin-control" style="display:none;">
-                            <label class="comodin-toggle" for="comodin-autista-checkbox">
-                                <input id="comodin-autista-checkbox" type="checkbox" onchange="cambiarComodinAutista(this.checked)">
-                                <span class="comodin-copy">
-                                    <strong>Comodin de Autista</strong>
-                                    <small id="comodin-autista-description">Actívalo para que Gordi juegue la partida sin que el resultado afecte a sus estadísticas individuales.</small>
-                                </span>
-                            </label>
-                            <span id="comodin-autista-status" class="comodin-status">Por partida</span>
+                            <div class="comodin-copy">
+                                <strong>Comodín de Autista</strong>
+                                <small id="comodin-autista-description">Marca a la persona autorizada que lo utilizará en esta partida.</small>
+                                <div id="comodin-autista-options" class="comodin-options"></div>
+                            </div>
+                            <span id="comodin-autista-status" class="comodin-status">Opcional</span>
                         </div>
                         <button id="generar-equipos-button" type="button" onclick="lanzarSorteoSequencial()">GENERAR EQUIPOS Y CAMPEONES</button>
                         <div id="winner-panel" style="display:none;">
                             <h2>Equipo ganador</h2>
-                            <div style="margin-bottom:14px;color:var(--muted);font-size:.83rem;">Selecciona un MVP de cada equipo si corresponde y registra el ganador.</div>
+                            <div style="margin-bottom:14px;color:var(--muted);font-size:.83rem;">Selecciona un MVP de cada equipo si corresponde y registra el ganador. Si queréis repetir el sorteo, usad Remake.</div>
+                            <button type="button" id="remake-button" onclick="remakePartida()">↻ REMAKE · VOLVER A SORTEAR</button>
                             <button type="button" onclick="registrarVictoria('blue')">EQUIPO AZUL · VICTORIA</button>
                             <button type="button" onclick="registrarVictoria('red')">EQUIPO ROJO · VICTORIA</button>
                         </div>
@@ -679,6 +692,29 @@
             : nivelSeguro(db[name].level);
     });
 
+    const COMODIN_PERMITIDOS_KEY = 'colegones_comodin_permitidos_v1';
+
+    function normalizarComodinPermitidos(lista) {
+        if (!Array.isArray(lista)) return [];
+        const nombresActuales = new Map(Object.keys(db).map(nombre => [nombre.toLocaleLowerCase('es-ES'), nombre]));
+        return [...new Set(lista.map(nombre => {
+            const clave = String(nombre || '').trim().toLocaleLowerCase('es-ES');
+            return nombresActuales.get(clave) || null;
+        }).filter(Boolean))];
+    }
+
+    const comodinPorDefecto = [Object.keys(db).find(nombre => nombre.trim().toLocaleLowerCase('es-ES') === 'gordi')].filter(Boolean);
+    let comodinPermitidos = normalizarComodinPermitidos(
+        leerJSONLocalStorage(COMODIN_PERMITIDOS_KEY, comodinPorDefecto)
+    );
+    if (localStorage.getItem(COMODIN_PERMITIDOS_KEY) === null) {
+        localStorage.setItem(COMODIN_PERMITIDOS_KEY, JSON.stringify(comodinPermitidos));
+    }
+
+    function esJugadorPermitidoComodin(nombre) {
+        return comodinPermitidos.includes(nombre);
+    }
+
     const AJUSTE_PARTIDAS_INICIALES = 'ajuste_partidas_alexgoraeta_iraideta_v1';
 
     if (!localStorage.getItem(AJUSTE_PARTIDAS_INICIALES)) {
@@ -764,6 +800,7 @@
     let partidaPendiente = false;
     let sorteoEnCurso = false;
     let comodinAutistaActivo = false;
+    let comodinAutistaJugador = null;
     let mvpElegido = { blue: false, red: false };
     let mvpActual = { blue: null, red: null };
     let campeonesActuales = { blue: {}, red: {} };
@@ -815,13 +852,22 @@
     function estadoLocalParaCompartir() {
         return {
             players: JSON.parse(JSON.stringify(db)),
-            history: JSON.parse(JSON.stringify(historialPartidas))
+            history: JSON.parse(JSON.stringify(historialPartidas)),
+            comodinAllowed: [...comodinPermitidos]
         };
     }
 
     function estadoServidorCoincideConLocal(estado) {
         if (!estado || !estado.players || !Array.isArray(estado.history)) return false;
-        const estadoServidor = JSON.stringify({ players: estado.players, history: estado.history });
+        const defaultPermitidos = [Object.keys(estado.players).find(nombre => String(nombre).trim().toLocaleLowerCase('es-ES') === 'gordi')].filter(Boolean);
+        const permitidosServidor = normalizarComodinPermitidos(
+            Array.isArray(estado.comodinAllowed) ? estado.comodinAllowed : defaultPermitidos
+        );
+        const estadoServidor = JSON.stringify({
+            players: estado.players,
+            history: estado.history,
+            comodinAllowed: permitidosServidor
+        });
         return estadoServidor === JSON.stringify(estadoLocalParaCompartir());
     }
 
@@ -850,6 +896,11 @@
                 Array.isArray(partida.blue) && Array.isArray(partida.red) &&
                 ['blue', 'red'].includes(partida.ganador))
             .slice(0, 20);
+        const defaultPermitidos = [Object.keys(db).find(nombre => String(nombre).trim().toLocaleLowerCase('es-ES') === 'gordi')].filter(Boolean);
+        comodinPermitidos = normalizarComodinPermitidos(
+            Array.isArray(estado.comodinAllowed) ? estado.comodinAllowed : defaultPermitidos
+        );
+        localStorage.setItem(COMODIN_PERMITIDOS_KEY, JSON.stringify(comodinPermitidos));
         sharedRevision = Number.isInteger(estado.revision) ? estado.revision : 1;
         sharedRankingInitialized = true;
         sharedDirty = false;
@@ -1097,6 +1148,7 @@
         renderAnalysisInsights();
         localStorage.setItem('lol_pure_db_v3', JSON.stringify(db));
         localStorage.setItem('lol_match_history', JSON.stringify(historialPartidas));
+        localStorage.setItem(COMODIN_PERMITIDOS_KEY, JSON.stringify(comodinPermitidos));
         if (sincronizarCompartido) {
             if (sharedRankingInitialized) {
                 programarGuardadoCompartido();
@@ -1449,82 +1501,93 @@
     }
 
     function estaJugadorExentoEnPartida(partida, nombre) {
-        return Boolean(
-            partida &&
-            typeof partida.comodinAutista === 'string' &&
-            partida.comodinAutista.trim() &&
-            partida.comodinAutista.trim().toLocaleLowerCase('es-ES') === String(nombre || '').trim().toLocaleLowerCase('es-ES')
-        );
+        if (!partida) return false;
+        const exentos = Array.isArray(partida.comodinAutista)
+            ? partida.comodinAutista
+            : [partida.comodinAutista].filter(valor => typeof valor === 'string' && valor.trim());
+        const clave = String(nombre || '').trim().toLocaleLowerCase('es-ES');
+        return exentos.some(exento => String(exento || '').trim().toLocaleLowerCase('es-ES') === clave);
     }
 
-    function comodinAplicaEnPartidaActual() {
-        if (!comodinAutistaActivo || !partidaPendiente) return false;
-        const gordi = obtenerNombreGordi();
-        return Boolean(gordi && [...equiposActuales.blue, ...equiposActuales.red].some(nombre => esGordi(nombre)));
+    function comodinAplicaEnPartidaActual(nombre) {
+        if (!comodinAutistaActivo || !comodinAutistaJugador || !esJugadorPermitidoComodin(comodinAutistaJugador)) return false;
+        if (nombre && nombre !== comodinAutistaJugador) return false;
+        const presentes = [...new Set([...seleccionados, ...equiposActuales.blue, ...equiposActuales.red])];
+        return presentes.includes(comodinAutistaJugador);
     }
 
     function actualizarBotonesMVPComodin() {
         ['blue', 'red'].forEach(lado => {
             const botones = [...document.querySelectorAll('#slots-' + lado + ' .mvp-button')];
             if (mvpElegido[lado] && mvpActual[lado]) {
-                botones.forEach(boton => { boton.disabled = boton.dataset.player !== mvpActual[lado]; });
-            } else {
                 botones.forEach(boton => {
-                    boton.disabled = Boolean(comodinAplicaEnPartidaActual() && esGordi(boton.dataset.player));
+                    boton.disabled = boton.dataset.player !== mvpActual[lado] || comodinAplicaEnPartidaActual(boton.dataset.player);
                 });
+            } else {
+                botones.forEach(boton => { boton.disabled = comodinAplicaEnPartidaActual(boton.dataset.player); });
             }
         });
     }
 
     function renderControlComodinAutista() {
         const control = document.getElementById('comodin-autista-control');
-        const checkbox = document.getElementById('comodin-autista-checkbox');
+        const opciones = document.getElementById('comodin-autista-options');
         const descripcion = document.getElementById('comodin-autista-description');
         const estado = document.getElementById('comodin-autista-status');
-        if (!control || !checkbox) return;
+        if (!control || !opciones) return;
 
-        const hayGordiSeleccionado = seleccionados.some(nombre => esGordi(nombre));
-        const hayGordiEnPartidaPendiente = partidaPendiente &&
-            [...equiposActuales.blue, ...equiposActuales.red].some(nombre => esGordi(nombre));
-        const visible = accesoPartida && (hayGordiSeleccionado || hayGordiEnPartidaPendiente);
-        control.style.display = visible ? 'flex' : 'none';
-        control.classList.toggle('active', comodinAutistaActivo);
-        checkbox.checked = comodinAutistaActivo;
-        checkbox.disabled = sorteoEnCurso;
-        if (descripcion) {
-            descripcion.textContent = comodinAplicaEnPartidaActual()
-                ? 'Activo en esta partida: Gordi no suma partida jugada, victoria, derrota personal, MVP ni estadísticas de campeones.'
-                : 'Actívalo antes del sorteo para que Gordi juegue la partida sin que el resultado afecte a sus estadísticas individuales.';
+        const participantes = [...new Set([...seleccionados, ...(partidaPendiente ? [...equiposActuales.blue, ...equiposActuales.red] : [])])];
+        const disponibles = participantes.filter(nombre => Boolean(db[nombre]) && esJugadorPermitidoComodin(nombre));
+        if (comodinAutistaJugador && !disponibles.includes(comodinAutistaJugador)) {
+            comodinAutistaActivo = false;
+            comodinAutistaJugador = null;
         }
-        if (estado) estado.textContent = comodinAutistaActivo ? 'Activado' : 'Por partida';
+
+        control.style.display = accesoPartida && disponibles.length > 0 ? 'flex' : 'none';
+        control.classList.toggle('active', comodinAplicaEnPartidaActual());
+        opciones.innerHTML = disponibles.map(nombre => `
+            <label class="comodin-player-option">
+                <input type="checkbox" data-comodin-jugador="${escaparHTML(nombre)}"
+                    ${comodinAutistaActivo && comodinAutistaJugador === nombre ? 'checked' : ''}
+                    ${sorteoEnCurso ? 'disabled' : ''}>
+                <span>${escaparHTML(nombre)}</span>
+            </label>
+        `).join('');
+        if (descripcion) {
+            descripcion.textContent = 'Solo las personas autorizadas en el editor pueden usarlo. Marca quién lo utiliza en esta partida; solo se puede elegir a una persona cada vez.';
+        }
+        if (estado) {
+            estado.textContent = comodinAplicaEnPartidaActual() ? 'Activo: ' + comodinAutistaJugador : 'Opcional';
+        }
         actualizarBotonesMVPComodin();
     }
 
-    function cambiarComodinAutista(activado) {
+    function cambiarComodinAutista(nombre, activado) {
         if (sorteoEnCurso) {
             renderControlComodinAutista();
             return;
         }
-        const hayGordi = seleccionados.some(nombre => esGordi(nombre)) ||
-            (partidaPendiente && [...equiposActuales.blue, ...equiposActuales.red].some(nombre => esGordi(nombre)));
-        if (activado && !hayGordi) {
-            comodinAutistaActivo = false;
+        const disponibles = [...new Set([...seleccionados, ...equiposActuales.blue, ...equiposActuales.red])];
+        if (activado && (!db[nombre] || !disponibles.includes(nombre) || !esJugadorPermitidoComodin(nombre))) {
             renderControlComodinAutista();
             return;
         }
 
-        comodinAutistaActivo = Boolean(activado);
-        if (comodinAplicaEnPartidaActual() && mvpActual) {
+        if (activado) {
+            comodinAutistaActivo = true;
+            comodinAutistaJugador = nombre;
             ['blue', 'red'].forEach(lado => {
-                if (!esGordi(mvpActual[lado])) return;
+                if (mvpActual[lado] !== nombre) return;
                 mvpActual[lado] = null;
                 mvpElegido[lado] = false;
                 document.querySelectorAll('#slots-' + lado + ' .mvp-button').forEach(boton => {
                     boton.classList.remove('selected');
                     boton.textContent = 'MVP';
-                    boton.disabled = esGordi(boton.dataset.player);
                 });
             });
+        } else if (comodinAutistaJugador === nombre) {
+            comodinAutistaActivo = false;
+            comodinAutistaJugador = null;
         }
         renderControlComodinAutista();
     }
@@ -1572,8 +1635,9 @@
         if (seleccionados.includes(name)) seleccionados = seleccionados.filter(n => n !== name);
         else if (seleccionados.length < 10) seleccionados.push(name);
         else return alert("Puedes seleccionar como máximo 10 jugadores.");
-        if (!seleccionados.some(nombre => esGordi(nombre)) && !partidaPendiente) {
+        if (comodinAutistaJugador && !seleccionados.includes(comodinAutistaJugador)) {
             comodinAutistaActivo = false;
+            comodinAutistaJugador = null;
         }
         renderSelector();
     }
@@ -1635,6 +1699,7 @@
             console.error('Error al generar la partida.', error);
             partidaPendiente = false;
             comodinAutistaActivo = false;
+            comodinAutistaJugador = null;
             document.getElementById('winner-panel').style.display = 'none';
             alert("No se pudo generar la partida. Recarga la página e inténtalo de nuevo.");
         } finally {
@@ -1642,6 +1707,16 @@
             botonSorteo.disabled = false;
             renderSelector();
         }
+    }
+
+    function remakePartida() {
+        if (!partidaPendiente || sorteoEnCurso) return;
+        // Descarta el sorteo sin resultado, historial ni cambios en el ranking.
+        partidaPendiente = false;
+        mvpElegido = { blue: false, red: false };
+        mvpActual = { blue: null, red: null };
+        document.getElementById('winner-panel').style.display = 'none';
+        return lanzarSorteoSequencial();
     }
 
     function registrarMVP(equipo, name, button) {
@@ -1668,8 +1743,12 @@
             return alert("No se puede registrar la partida porque falta un jugador en el ranking. Revisa los datos antes de continuar.");
         }
 
-        const comodinUsado = typeof comodinAutistaActivo !== 'undefined' && comodinAutistaActivo && partidaPendiente
-            ? jugadoresDeLaPartida.find(name => String(name).trim().toLocaleLowerCase('es-ES') === 'gordi') || null
+        const comodinUsado = typeof comodinAutistaActivo !== 'undefined' &&
+            comodinAutistaActivo &&
+            typeof comodinAutistaJugador === 'string' &&
+            comodinPermitidos.includes(comodinAutistaJugador) &&
+            jugadoresDeLaPartida.includes(comodinAutistaJugador)
+            ? comodinAutistaJugador
             : null;
 
         // El comodín elimina solo a Gordi de las estadísticas personales de esta partida.
@@ -1717,10 +1796,11 @@
 
         partidaPendiente = false;
         comodinAutistaActivo = false;
+        comodinAutistaJugador = null;
         document.getElementById('winner-panel').style.display = 'none';
         actualizarInterfaz();
         alert("Victoria registrada para el " + (equipo === 'blue' ? "EQUIPO AZUL." : "EQUIPO ROJO.") +
-            (comodinUsado ? " Comodin de Autista aplicado a Gordi: la partida no suma ni resta estadísticas personales." : ""));
+            (comodinUsado ? " Comodín aplicado a " + comodinUsado + ": sus estadísticas individuales no se han modificado." : ""));
     }
 
 
@@ -1766,7 +1846,7 @@
                         <h3>PARTIDA #${historialPartidas.length - index}</h3>
                         <small>${escaparHTML(partida.fecha || 'Fecha desconocida')}</small>
                     </div>
-                    ${partida.comodinAutista ? '<div class="comodin-history-note">🃏 Comodin de Autista aplicado a Gordi. Esta partida se ha conservado en el historial, pero no modifica sus estadísticas personales.</div>' : ''}
+                    ${partida.comodinAutista ? '<div class="comodin-history-note">🃏 Comodín de Autista aplicado a ' + escaparHTML((Array.isArray(partida.comodinAutista) ? partida.comodinAutista : [partida.comodinAutista]).filter(Boolean).join(', ')) + '. Esta partida se ha conservado en el historial, pero no modifica sus estadísticas personales.</div>' : ''}
                     <div class="history-team">
                         <div class="history-team-title blue"><span>●</span> EQUIPO AZUL</div>
                         <div class="history-players">${renderHistoryPlayers(blueData)}</div>
@@ -1878,6 +1958,33 @@
                 </td>
             </tr>
         `).join('');
+        renderComodinPermitidosEditor();
+    }
+
+    function renderComodinPermitidosEditor() {
+        const container = document.getElementById('comodin-permitidos-list');
+        if (!container) return;
+        container.innerHTML = Object.keys(db).sort().map(nombre => `
+            <label class="comodin-allowed-option">
+                <input type="checkbox" data-allowed-player="${escaparHTML(nombre)}"
+                    ${esJugadorPermitidoComodin(nombre) ? 'checked' : ''}>
+                <span>${escaparHTML(nombre)}</span>
+            </label>
+        `).join('');
+    }
+
+    function cambiarPermisoComodin(nombre, permitido) {
+        if (!db[nombre]) return;
+        comodinPermitidos = permitido
+            ? normalizarComodinPermitidos([...comodinPermitidos, nombre])
+            : comodinPermitidos.filter(jugador => jugador !== nombre);
+        if (comodinAutistaJugador === nombre && !permitido) {
+            comodinAutistaActivo = false;
+            comodinAutistaJugador = null;
+        }
+        actualizarInterfaz();
+        renderEditor();
+        renderControlComodinAutista();
     }
 
     function editarNombre(nombreActual) {
@@ -1895,6 +2002,8 @@
         db[nombreLimpio] = db[nombreActual];
         delete db[nombreActual];
         seleccionados = seleccionados.map(nombre => nombre === nombreActual ? nombreLimpio : nombre);
+        comodinPermitidos = normalizarComodinPermitidos(comodinPermitidos.map(nombre => nombre === nombreActual ? nombreLimpio : nombre));
+        if (comodinAutistaJugador === nombreActual) comodinAutistaJugador = nombreLimpio;
 
         actualizarInterfaz();
         renderEditor();
@@ -1924,7 +2033,8 @@
             version: 1,
             exportedAt: new Date().toISOString(),
             jugadores: db,
-            historialPartidas
+            historialPartidas,
+            comodinPermitidos
         };
         const blob = new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1971,6 +2081,13 @@
             if (!confirm('Importar esta copia reemplazará el ranking y el historial actuales. ¿Continuar?')) return;
             db = nuevosJugadores;
             historialPartidas = nuevoHistorial;
+            comodinPermitidos = normalizarComodinPermitidos(
+                Array.isArray(copia.comodinPermitidos)
+                    ? copia.comodinPermitidos
+                    : [Object.keys(db).find(nombre => esGordi(nombre))].filter(Boolean)
+            );
+            comodinAutistaActivo = false;
+            comodinAutistaJugador = null;
             seleccionados = [];
             equiposActuales = { blue: [], red: [] };
             campeonesActuales = { blue: {}, red: {} };
@@ -2009,6 +2126,19 @@
             });
         });
 
+        const permitidosEditor = document.getElementById('comodin-permitidos-list');
+        permitidosEditor.addEventListener('change', event => {
+            const entrada = event.target.closest('[data-allowed-player]');
+            if (!entrada) return;
+            cambiarPermisoComodin(entrada.dataset.allowedPlayer, entrada.checked);
+        });
+
+        const opcionesComodin = document.getElementById('comodin-autista-options');
+        opcionesComodin.addEventListener('change', event => {
+            const entrada = event.target.closest('[data-comodin-jugador]');
+            if (entrada) cambiarComodinAutista(entrada.dataset.comodinJugador, entrada.checked);
+        });
+
         const tablaEditor = document.getElementById('tabla-editor');
         tablaEditor.addEventListener('change', event => {
             const entrada = event.target.closest('[data-field]');
@@ -2035,6 +2165,11 @@
                 if (!confirm('¿Seguro que quieres eliminar a ' + nombre + '?')) return;
                 delete db[nombre];
                 seleccionados = seleccionados.filter(jugador => jugador !== nombre);
+                comodinPermitidos = comodinPermitidos.filter(jugador => jugador !== nombre);
+                if (comodinAutistaJugador === nombre) {
+                    comodinAutistaActivo = false;
+                    comodinAutistaJugador = null;
+                }
                 actualizarInterfaz();
                 renderEditor();
             }
