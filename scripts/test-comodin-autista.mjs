@@ -96,55 +96,66 @@ assert.deepEqual([...variosActivos.historialPartidas[0].comodinAutista], ['Ana',
 assert.equal(variosActivos.historialPartidas[0].mvpBlue, 'gordi');
 assert.equal(variosActivos.historialPartidas[0].mvpRed, null);
 
-// Test activation/deactivation and eligibility without exposing an allowlist or visible tag.
-const comodinStart = html.indexOf('    function comodinAplicaEnPartidaActual(nombre) {');
-const comodinEnd = html.indexOf('    function renderSelector()', comodinStart);
-assert.notEqual(comodinStart, -1, 'No se encontró la lógica de activación del comodín.');
-assert.notEqual(comodinEnd, -1, 'No se encontró el final de la lógica del comodín.');
-const comodinSource = html.slice(comodinStart, comodinEnd);
+// Test activation/deactivation using the clown square directly beside each name.
+const toggleStart = html.indexOf('    function toggleComodinJugadorPartida(nombre) {');
+const toggleEnd = html.indexOf('    function renderSelector()', toggleStart);
+assert.notEqual(toggleStart, -1, 'No se encontró la función de alternar el comodín por jugador.');
+assert.notEqual(toggleEnd, -1, 'No se encontró el final de la función del comodín.');
+const toggleSource = html.slice(toggleStart, toggleEnd);
 
-function runActivation(nombreEntrada, permitidos, activos = []) {
+function runToggle(nombre, permitidos, activos = [], mvpNombre = null) {
     const alerts = [];
+    let updates = 0;
     const equiposActuales = { blue: ['gordi', 'Ana'], red: ['Biel', 'Carla'] };
     const context = {
         partidaPendiente: true,
         sorteoEnCurso: false,
         equiposActuales,
-        seleccionados: [...equiposActuales.blue, ...equiposActuales.red],
         db: { gordi: {}, Ana: {}, Biel: {}, Carla: {} },
         comodinesActivosPartida: [...activos],
-        esJugadorPermitidoComodin: nombre => permitidos.includes(nombre),
-        mvpElegido: { blue: false, red: false },
-        mvpActual: { blue: null, red: null },
-        prompt: () => nombreEntrada,
-        alert: message => alerts.push(message),
-        document: { querySelectorAll: () => [] }
+        esJugadorPermitidoComodin: jugador => permitidos.includes(jugador),
+        mvpElegido: { blue: Boolean(mvpNombre), red: false },
+        mvpActual: { blue: mvpNombre, red: null },
+        actualizarBotonesMVPComodin() { updates += 1; },
+        alert: message => alerts.push(message)
     };
-    runInNewContext(comodinSource + '\nglobalThis.__manage = gestionarComodinPartida;', context);
-    context.__manage();
-    return { context, alerts };
+    runInNewContext(toggleSource + '\nglobalThis.__toggle = toggleComodinJugadorPartida;', context);
+    context.__toggle(nombre);
+    return { context, alerts, getUpdates: () => updates };
 }
 
-const activacion = runActivation('Ana', ['Ana']);
+const activacion = runToggle('Ana', ['Ana']);
 assert.deepEqual([...activacion.context.comodinesActivosPartida], ['Ana']);
-assert.equal(activacion.alerts.at(-1), 'Comodín activado para esta partida.');
-assert.doesNotMatch(activacion.alerts.join(' '), /Ana/, 'Los avisos no deben revelar el nombre activado.');
+assert.equal(activacion.alerts.length, 0, 'La activación debe hacerse con un clic, sin pedir que se escriba el nombre.');
+assert.equal(activacion.getUpdates(), 1);
 
-const desactivacion = runActivation('Ana', ['Ana'], ['Ana']);
+const desactivacion = runToggle('Ana', ['Ana'], ['Ana']);
 assert.deepEqual([...desactivacion.context.comodinesActivosPartida], []);
-assert.equal(desactivacion.alerts.at(-1), 'Comodín desactivado para esta partida.');
+assert.equal(desactivacion.alerts.length, 0, 'La desactivación también debe hacerse con un clic.');
 
-const noAutorizado = runActivation('Biel', ['Ana']);
+const noAutorizado = runToggle('Biel', ['Ana']);
 assert.deepEqual([...noAutorizado.context.comodinesActivosPartida], []);
-assert.equal(noAutorizado.alerts.at(-1), 'Ese jugador no puede optar al comodín en esta partida.');
+assert.equal(noAutorizado.alerts.at(-1), 'Este jugador no tiene permiso para usar el comodín. Se configura desde el modo editor.');
+assert.equal(noAutorizado.getUpdates(), 0, 'Un jugador no autorizado no puede activar el comodín.');
 
-assert.match(html, /<button type="button" class="comodin-activation-button" onclick="gestionarComodinPartida\(\)">🎭 GESTIONAR COMODÍN<\/button>/);
-assert.match(html, /function gestionarComodinPartida\(\)/);
-assert.match(html, /Estar marcado aquí no excluye automáticamente sus estadísticas/);
-assert.doesNotMatch(html, /Etiqueta interna: excluir estadísticas individuales/);
-assert.doesNotMatch(html, /comodin-tag|comodin-history-note/);
-assert.doesNotMatch(html, /class="comodin-activation-button"[^>]*data-player=/,
-    'El control no debe colocar una etiqueta de comodín junto a un jugador concreto.');
+const mvpActivado = runToggle('Ana', ['Ana'], [], 'Ana');
+assert.deepEqual([...mvpActivado.context.comodinesActivosPartida], ['Ana']);
+assert.equal(mvpActivado.context.mvpElegido.blue, false, 'Al activar el comodín, se debe quitar su selección previa como MVP.');
+assert.equal(mvpActivado.context.mvpActual.blue, null, 'Un jugador con comodín activo no puede seguir siendo el MVP seleccionado.');
+
+assert.match(html, /class="comodin-toggle-button" data-player=/,
+    'Cada jugador de los equipos debe tener un cuadrado de payaso junto a su nombre.');
+assert.match(html, /slot-player-name"><b>\$\{escaparHTML\(name\)\}<\/b><button type="button" class="comodin-toggle-button"/,
+    'El cuadrado de payaso debe estar al lado del nombre del jugador.');
+assert.match(html, /toggleComodinJugadorPartida\(botonComodin\.dataset\.player\)/,
+    'El clic del cuadrado debe alternar el comodín del jugador de esa línea.');
+assert.match(html, /Permiso para optar al comodín/);
+assert.doesNotMatch(html, /function gestionarComodinPartida\(\)/,
+    'No debe quedar el antiguo método que pedía escribir un nombre.');
+assert.doesNotMatch(html, /GESTIONAR COMODÍN/,
+    'No debe quedar el botón general de gestión del comodín.');
+assert.doesNotMatch(html, /Escribe el nombre del jugador que quiere optar al comodín/,
+    'El comodín no debe requerir escribir el nombre.');
 
 // Remake must discard active comodins without recording anything.
 const htmlRemakeStart = html.indexOf('    function remakePartida() {');
