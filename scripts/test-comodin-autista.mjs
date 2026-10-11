@@ -9,12 +9,11 @@ assert.notEqual(start, -1, 'No se encontró registrarVictoria.');
 assert.notEqual(end, -1, 'No se encontró el final de registrarVictoria.');
 const functionSource = html.slice(start, end);
 
-function runRegistration(winner, comodinJugador = 'gordi') {
+function runRegistration(winner, jugadoresEtiquetados = ['gordi']) {
     const context = {
         partidaPendiente: true,
-        comodinAutistaActivo: true,
-        comodinAutistaJugador: comodinJugador,
-        comodinPermitidos: [comodinJugador],
+        comodinPermitidos: [...jugadoresEtiquetados],
+        esJugadorPermitidoComodin: nombre => jugadoresEtiquetados.includes(nombre),
         equiposActuales: { blue: ['gordi', 'Ana'], red: ['Biel', 'Carla'] },
         db: {
             gordi: { w: 2, m: 5, games: 8, level: 1 },
@@ -48,31 +47,43 @@ for (const winner of ['blue', 'red']) {
     assert.deepEqual(
         { w: context.db.gordi.w, m: context.db.gordi.m, games: context.db.gordi.games },
         { w: 2, m: 5, games: 8 },
-        'El comodín debe dejar intactas todas las estadísticas de Gordi tanto si gana como si pierde.'
+        'La etiqueta interna debe dejar intactas todas las estadísticas de Gordi tanto si gana como si pierde.'
     );
     assert.equal(context.db.Ana.games, 11);
     assert.equal(context.db.Biel.games, 10);
     assert.equal(context.db.Carla.games, 13);
-    assert.equal(context.db.Carla.m, 5, 'El MVP del otro jugador sí debe contar.');
+    assert.equal(context.db.Carla.m, 5, 'El MVP de los jugadores sin etiqueta sí debe contar.');
     assert.equal(context.db.Ana.w, 4 + (winner === 'blue' ? 1 : 0));
     assert.equal(context.db.Carla.w, 6 + (winner === 'red' ? 1 : 0));
     assert.equal(context.historialPartidas.length, 1);
-    assert.equal(context.historialPartidas[0].comodinAutista, 'gordi');
-    assert.equal(context.historialPartidas[0].mvpBlue, null, 'Gordi no debe quedar registrado como MVP de esa partida.');
+    assert.deepEqual([...context.historialPartidas[0].comodinAutista], ['gordi']);
+    assert.equal(context.historialPartidas[0].mvpBlue, null, 'Un jugador etiquetado no debe contar como MVP.');
     assert.equal(context.historialPartidas[0].mvpRed, 'Carla');
-    assert.equal(context.comodinAutistaActivo, false, 'El comodín debe reiniciarse después de registrar la partida.');
-    assert.equal(context.comodinAutistaJugador, null, 'El jugador que usó el comodín debe limpiarse tras registrar.');
     assert.equal(context.partidaPendiente, false);
 }
 
-const otroJugador = runRegistration('blue', 'Ana');
+// Se pueden etiquetar varios jugadores y sus exclusiones son invisibles en la UI.
+const variosEtiquetados = runRegistration('blue', ['Ana', 'Carla']);
 assert.deepEqual(
-    { w: otroJugador.db.Ana.w, m: otroJugador.db.Ana.m, games: otroJugador.db.Ana.games },
+    { w: variosEtiquetados.db.Ana.w, m: variosEtiquetados.db.Ana.m, games: variosEtiquetados.db.Ana.games },
     { w: 4, m: 1, games: 10 },
-    'Un jugador autorizado desde el editor también debe quedar exento de sus estadísticas individuales.'
+    'Todos los jugadores etiquetados deben quedar fuera de sus estadísticas individuales.'
 );
-assert.equal(otroJugador.historialPartidas[0].comodinAutista, 'Ana');
-assert.equal(otroJugador.db.gordi.m, 6, 'El MVP de un jugador distinto al exento debe seguir sumando.');
+assert.deepEqual(
+    { w: variosEtiquetados.db.Carla.w, m: variosEtiquetados.db.Carla.m, games: variosEtiquetados.db.Carla.games },
+    { w: 6, m: 4, games: 12 },
+    'La etiqueta se aplica también si el jugador etiquetado está en el equipo perdedor.'
+);
+assert.equal(variosEtiquetados.db.gordi.games, 9, 'Los jugadores sin etiqueta deben contar normalmente.');
+assert.equal(variosEtiquetados.db.gordi.m, 6, 'El MVP sin etiqueta debe contar normalmente.');
+assert.deepEqual([...variosEtiquetados.historialPartidas[0].comodinAutista], ['Ana', 'Carla']);
+assert.equal(variosEtiquetados.historialPartidas[0].mvpBlue, 'gordi');
+assert.equal(variosEtiquetados.historialPartidas[0].mvpRed, null);
+
+// Names/labels must not appear in the public gameplay or history UI.
+assert.doesNotMatch(html, /id="comodin-autista-options"/);
+assert.doesNotMatch(html, /comodin-tag|comodin-history-note/);
+assert.match(html, /Etiqueta interna: excluir estadísticas individuales/);
 
 const htmlRemakeStart = html.indexOf('    function remakePartida() {');
 const htmlRemakeEnd = html.indexOf('    function registrarMVP(', htmlRemakeStart);

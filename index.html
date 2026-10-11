@@ -278,29 +278,12 @@
     .player-card:hover { border-color: rgba(77,169,255,.35); background: rgba(77,169,255,.055); }
     .player-card.selected { border-color: rgba(232,199,120,.6); color: var(--gold-strong); background: rgba(232,199,120,.09); box-shadow: inset 0 0 0 1px rgba(232,199,120,.08); }
     .player-card.locked { opacity: .5; cursor: not-allowed; }
-    .comodin-control {
-        display: none; align-items: center; justify-content: space-between; gap: 14px;
-        margin: 14px 0 17px; padding: 14px 16px; border: 1px solid rgba(194, 139, 255, .26);
-        border-radius: 13px; background: linear-gradient(100deg, rgba(133, 77, 195, .12), rgba(232, 199, 120, .045));
-    }
-    .comodin-toggle { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; min-width: 0; }
-    .comodin-toggle input { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; accent-color: #c58cff; cursor: pointer; }
-    .comodin-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    .comodin-player-option { display: flex; align-items: center; gap: 7px; padding: 8px 10px; border: 1px solid rgba(194,139,255,.23); border-radius: 9px; background: rgba(133,77,195,.07); cursor: pointer; }
-    .comodin-player-option input { width: 16px; height: 16px; margin: 0; accent-color: #c58cff; }
     .comodin-editor-config { margin: 20px 0 8px; padding: 16px; border: 1px solid rgba(194,139,255,.22); border-radius: 12px; background: rgba(133,77,195,.055); }
     .comodin-editor-config h3 { margin: 0 0 6px; color: #e8d5ff; font-size: .87rem; }
     .comodin-editor-config p { margin: 0 0 12px; color: var(--muted); font-size: .74rem; line-height: 1.5; }
     .comodin-permitidos-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 7px; }
     .comodin-allowed-option { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; color: #cbd7e8; background: rgba(255,255,255,.025); font-size: .75rem; font-weight: 700; cursor: pointer; }
     .comodin-allowed-option input { width: 16px; height: 16px; margin: 0; accent-color: #c58cff; }
-    .comodin-copy strong { display: block; color: #e8d5ff; font-size: .83rem; letter-spacing: .015em; }
-    .comodin-copy small { display: block; max-width: 640px; margin-top: 5px; color: #a9a0c4; font-size: .72rem; line-height: 1.5; }
-    .comodin-status { flex: 0 0 auto; padding: 6px 8px; border: 1px solid rgba(194, 139, 255, .25); border-radius: 99px; color: #d8b4ff; background: rgba(133, 77, 195, .09); font-size: .61rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
-    .comodin-control.active { border-color: rgba(194, 139, 255, .55); background: linear-gradient(100deg, rgba(133, 77, 195, .22), rgba(232, 199, 120, .07)); }
-    .comodin-control.active .comodin-status { color: #f0dfff; border-color: rgba(194,139,255,.5); }
-    .comodin-tag { display: inline-block; margin-left: 5px; padding: 3px 6px; border: 1px solid rgba(194,139,255,.27); border-radius: 6px; color: #e2c9ff; background: rgba(133,77,195,.12); font-size: .59rem; font-weight: 850; vertical-align: middle; }
-    .comodin-history-note { margin: 0 0 12px; padding: 10px 12px; border: 1px solid rgba(194,139,255,.2); border-radius: 10px; color: #d8c5f4; background: rgba(133,77,195,.075); font-size: .75rem; line-height: 1.5; }
     #generar-equipos-button { width: 100%; min-height: 48px; padding: 13px; border: 1px solid rgba(77,169,255,.32); border-radius: 12px; color: #e9f4ff; background: linear-gradient(100deg, rgba(43,122,190,.28), rgba(77,169,255,.12)); font-size: .87rem; font-weight: 900; letter-spacing: .08em; }
     #winner-panel { margin-top: 18px; padding: 22px; border: 1px solid rgba(232,199,120,.42); border-radius: 15px; text-align: center; background: rgba(232,199,120,.055); }
     #winner-panel h2 { margin-top: 0; }
@@ -525,8 +508,8 @@
                             </table>
                         </div>
                         <div class="comodin-editor-config">
-                            <h3>Jugadores que pueden usar el Comodín de Autista</h3>
-                            <p>Marca quién puede activarlo al preparar una partida. Solo una persona podrá usarlo en cada partida.</p>
+                            <h3>Etiqueta interna: excluir estadísticas individuales</h3>
+                            <p>Marca los jugadores cuyas partidas, victorias, MVP y estadísticas de campeones no deben contar cuando participen. Esta lista solo aparece en el modo editor.</p>
                             <div id="comodin-permitidos-list" class="comodin-permitidos-list"></div>
                         </div>
                         <div class="editor-actions">
@@ -547,14 +530,6 @@
                             <span class="section-tag">De 2 a 10 jugadores</span>
                         </div>
                         <div id="grid-jugadores" class="selector-grid"></div>
-                        <div id="comodin-autista-control" class="comodin-control" style="display:none;">
-                            <div class="comodin-copy">
-                                <strong>Comodín de Autista</strong>
-                                <small id="comodin-autista-description">Marca a la persona autorizada que lo utilizará en esta partida.</small>
-                                <div id="comodin-autista-options" class="comodin-options"></div>
-                            </div>
-                            <span id="comodin-autista-status" class="comodin-status">Opcional</span>
-                        </div>
                         <button id="generar-equipos-button" type="button" onclick="lanzarSorteoSequencial()">GENERAR EQUIPOS Y CAMPEONES</button>
                         <div id="winner-panel" style="display:none;">
                             <h2>Equipo ganador</h2>
@@ -799,8 +774,6 @@
     let equiposActuales = { blue: [], red: [] };
     let partidaPendiente = false;
     let sorteoEnCurso = false;
-    let comodinAutistaActivo = false;
-    let comodinAutistaJugador = null;
     let mvpElegido = { blue: false, red: false };
     let mvpActual = { blue: null, red: null };
     let campeonesActuales = { blue: {}, red: {} };
@@ -1510,10 +1483,11 @@
     }
 
     function comodinAplicaEnPartidaActual(nombre) {
-        if (!comodinAutistaActivo || !comodinAutistaJugador || !esJugadorPermitidoComodin(comodinAutistaJugador)) return false;
-        if (nombre && nombre !== comodinAutistaJugador) return false;
-        const presentes = [...new Set([...seleccionados, ...equiposActuales.blue, ...equiposActuales.red])];
-        return presentes.includes(comodinAutistaJugador);
+        if (!nombre || !esJugadorPermitidoComodin(nombre)) return false;
+        const presentes = partidaPendiente
+            ? [...equiposActuales.blue, ...equiposActuales.red]
+            : seleccionados;
+        return presentes.includes(nombre);
     }
 
     function actualizarBotonesMVPComodin() {
@@ -1529,69 +1503,6 @@
         });
     }
 
-    function renderControlComodinAutista() {
-        const control = document.getElementById('comodin-autista-control');
-        const opciones = document.getElementById('comodin-autista-options');
-        const descripcion = document.getElementById('comodin-autista-description');
-        const estado = document.getElementById('comodin-autista-status');
-        if (!control || !opciones) return;
-
-        const participantes = [...new Set([...seleccionados, ...(partidaPendiente ? [...equiposActuales.blue, ...equiposActuales.red] : [])])];
-        const disponibles = participantes.filter(nombre => Boolean(db[nombre]) && esJugadorPermitidoComodin(nombre));
-        if (comodinAutistaJugador && !disponibles.includes(comodinAutistaJugador)) {
-            comodinAutistaActivo = false;
-            comodinAutistaJugador = null;
-        }
-
-        control.style.display = accesoPartida && disponibles.length > 0 ? 'flex' : 'none';
-        control.classList.toggle('active', comodinAplicaEnPartidaActual());
-        opciones.innerHTML = disponibles.map(nombre => `
-            <label class="comodin-player-option">
-                <input type="checkbox" data-comodin-jugador="${escaparHTML(nombre)}"
-                    ${comodinAutistaActivo && comodinAutistaJugador === nombre ? 'checked' : ''}
-                    ${sorteoEnCurso ? 'disabled' : ''}>
-                <span>${escaparHTML(nombre)}</span>
-            </label>
-        `).join('');
-        if (descripcion) {
-            descripcion.textContent = 'Solo las personas autorizadas en el editor pueden usarlo. Marca quién lo utiliza en esta partida; solo se puede elegir a una persona cada vez.';
-        }
-        if (estado) {
-            estado.textContent = comodinAplicaEnPartidaActual() ? 'Activo: ' + comodinAutistaJugador : 'Opcional';
-        }
-        actualizarBotonesMVPComodin();
-    }
-
-    function cambiarComodinAutista(nombre, activado) {
-        if (sorteoEnCurso) {
-            renderControlComodinAutista();
-            return;
-        }
-        const disponibles = [...new Set([...seleccionados, ...equiposActuales.blue, ...equiposActuales.red])];
-        if (activado && (!db[nombre] || !disponibles.includes(nombre) || !esJugadorPermitidoComodin(nombre))) {
-            renderControlComodinAutista();
-            return;
-        }
-
-        if (activado) {
-            comodinAutistaActivo = true;
-            comodinAutistaJugador = nombre;
-            ['blue', 'red'].forEach(lado => {
-                if (mvpActual[lado] !== nombre) return;
-                mvpActual[lado] = null;
-                mvpElegido[lado] = false;
-                document.querySelectorAll('#slots-' + lado + ' .mvp-button').forEach(boton => {
-                    boton.classList.remove('selected');
-                    boton.textContent = 'MVP';
-                });
-            });
-        } else if (comodinAutistaJugador === nombre) {
-            comodinAutistaActivo = false;
-            comodinAutistaJugador = null;
-        }
-        renderControlComodinAutista();
-    }
-
     function renderSelector() {
         const grid = document.getElementById('grid-jugadores');
         const bloqueado = sorteoEnCurso || partidaPendiente;
@@ -1602,7 +1513,6 @@
                 ${escaparHTML(name)}
             </div>
         `).join('');
-        renderControlComodinAutista();
     }
 
     function desbloquearPartida() {
@@ -1635,10 +1545,6 @@
         if (seleccionados.includes(name)) seleccionados = seleccionados.filter(n => n !== name);
         else if (seleccionados.length < 10) seleccionados.push(name);
         else return alert("Puedes seleccionar como máximo 10 jugadores.");
-        if (comodinAutistaJugador && !seleccionados.includes(comodinAutistaJugador)) {
-            comodinAutistaActivo = false;
-            comodinAutistaJugador = null;
-        }
         renderSelector();
     }
 
@@ -1694,12 +1600,11 @@
             document.querySelectorAll('.mvp-button').forEach(button => { button.disabled = false; });
             partidaPendiente = true;
             document.getElementById('winner-panel').style.display = 'block';
+            actualizarBotonesMVPComodin();
             actualizarInterfaz(false);
         } catch (error) {
             console.error('Error al generar la partida.', error);
             partidaPendiente = false;
-            comodinAutistaActivo = false;
-            comodinAutistaJugador = null;
             document.getElementById('winner-panel').style.display = 'none';
             alert("No se pudo generar la partida. Recarga la página e inténtalo de nuevo.");
         } finally {
@@ -1743,29 +1648,22 @@
             return alert("No se puede registrar la partida porque falta un jugador en el ranking. Revisa los datos antes de continuar.");
         }
 
-        const comodinUsado = typeof comodinAutistaActivo !== 'undefined' &&
-            comodinAutistaActivo &&
-            typeof comodinAutistaJugador === 'string' &&
-            comodinPermitidos.includes(comodinAutistaJugador) &&
-            jugadoresDeLaPartida.includes(comodinAutistaJugador)
-            ? comodinAutistaJugador
-            : null;
+        const jugadoresExcluidos = jugadoresDeLaPartida.filter(name => esJugadorPermitidoComodin(name));
 
-        // El comodín elimina solo a Gordi de las estadísticas personales de esta partida.
+        // La etiqueta interna excluye a estos jugadores de sus estadísticas personales en esta partida.
         jugadoresDeLaPartida.forEach(name => {
-            if (comodinUsado && name === comodinUsado) return;
+            if (jugadoresExcluidos.includes(name)) return;
             db[name].games = enteroNoNegativo(db[name].games) + 1;
         });
 
-        // La victoria del equipo sigue contando para todos salvo Gordi si usó el comodín.
         equiposActuales[equipo].forEach(name => {
-            if (comodinUsado && name === comodinUsado) return;
+            if (jugadoresExcluidos.includes(name)) return;
             db[name].w = enteroNoNegativo(db[name].w) + 1;
         });
 
         ['blue', 'red'].forEach(lado => {
             const mvp = mvpActual[lado];
-            if (mvp && db[mvp] && !(comodinUsado && mvp === comodinUsado)) {
+            if (mvp && db[mvp] && !jugadoresExcluidos.includes(mvp)) {
                 db[mvp].m = enteroNoNegativo(db[mvp].m) + 1;
             }
         });
@@ -1786,21 +1684,18 @@
             })),
             ganador: equipo,
             perdedor: equipo === 'blue' ? 'red' : 'blue',
-            comodinAutista: comodinUsado,
-            mvpBlue: comodinUsado && mvpActual.blue === comodinUsado ? null : mvpActual.blue,
-            mvpRed: comodinUsado && mvpActual.red === comodinUsado ? null : mvpActual.red
+            comodinAutista: jugadoresExcluidos,
+            mvpBlue: jugadoresExcluidos.includes(mvpActual.blue) ? null : mvpActual.blue,
+            mvpRed: jugadoresExcluidos.includes(mvpActual.red) ? null : mvpActual.red
         };
 
         historialPartidas.unshift(partida);
         historialPartidas = historialPartidas.slice(0, 20);
 
         partidaPendiente = false;
-        comodinAutistaActivo = false;
-        comodinAutistaJugador = null;
         document.getElementById('winner-panel').style.display = 'none';
         actualizarInterfaz();
-        alert("Victoria registrada para el " + (equipo === 'blue' ? "EQUIPO AZUL." : "EQUIPO ROJO.") +
-            (comodinUsado ? " Comodín aplicado a " + comodinUsado + ": sus estadísticas individuales no se han modificado." : ""));
+        alert("Victoria registrada para el " + (equipo === 'blue' ? "EQUIPO AZUL." : "EQUIPO ROJO."));
     }
 
 
@@ -1829,13 +1724,10 @@
                 const imageUrl = urlImagenCampeonSegura(player.image);
                 const nombre = escaparHTML(player.name || 'Jugador desconocido');
                 const campeon = escaparHTML(player.champion || 'Campeón no registrado');
-                const etiquetaComodin = estaJugadorExentoEnPartida(partida, player.name)
-                    ? '<span class="comodin-tag">Comodin de Autista</span>'
-                    : '';
                 return `
                     <div class="history-player">
                         ${imageUrl ? '<img src="' + escaparHTML(imageUrl) + '" alt="' + campeon + '" loading="lazy">' : ''}
-                        <div><strong>${nombre}${etiquetaComodin}</strong><small>${campeon}</small></div>
+                        <div><strong>${nombre}</strong><small>${campeon}</small></div>
                     </div>
                 `;
             }).join('');
@@ -1846,7 +1738,6 @@
                         <h3>PARTIDA #${historialPartidas.length - index}</h3>
                         <small>${escaparHTML(partida.fecha || 'Fecha desconocida')}</small>
                     </div>
-                    ${partida.comodinAutista ? '<div class="comodin-history-note">🃏 Comodín de Autista aplicado a ' + escaparHTML((Array.isArray(partida.comodinAutista) ? partida.comodinAutista : [partida.comodinAutista]).filter(Boolean).join(', ')) + '. Esta partida se ha conservado en el historial, pero no modifica sus estadísticas personales.</div>' : ''}
                     <div class="history-team">
                         <div class="history-team-title blue"><span>●</span> EQUIPO AZUL</div>
                         <div class="history-players">${renderHistoryPlayers(blueData)}</div>
@@ -1978,13 +1869,8 @@
         comodinPermitidos = permitido
             ? normalizarComodinPermitidos([...comodinPermitidos, nombre])
             : comodinPermitidos.filter(jugador => jugador !== nombre);
-        if (comodinAutistaJugador === nombre && !permitido) {
-            comodinAutistaActivo = false;
-            comodinAutistaJugador = null;
-        }
         actualizarInterfaz();
         renderEditor();
-        renderControlComodinAutista();
     }
 
     function editarNombre(nombreActual) {
@@ -2003,8 +1889,6 @@
         delete db[nombreActual];
         seleccionados = seleccionados.map(nombre => nombre === nombreActual ? nombreLimpio : nombre);
         comodinPermitidos = normalizarComodinPermitidos(comodinPermitidos.map(nombre => nombre === nombreActual ? nombreLimpio : nombre));
-        if (comodinAutistaJugador === nombreActual) comodinAutistaJugador = nombreLimpio;
-
         actualizarInterfaz();
         renderEditor();
     }
@@ -2086,8 +1970,6 @@
                     ? copia.comodinPermitidos
                     : [Object.keys(db).find(nombre => esGordi(nombre))].filter(Boolean)
             );
-            comodinAutistaActivo = false;
-            comodinAutistaJugador = null;
             seleccionados = [];
             equiposActuales = { blue: [], red: [] };
             campeonesActuales = { blue: {}, red: {} };
@@ -2133,12 +2015,6 @@
             cambiarPermisoComodin(entrada.dataset.allowedPlayer, entrada.checked);
         });
 
-        const opcionesComodin = document.getElementById('comodin-autista-options');
-        opcionesComodin.addEventListener('change', event => {
-            const entrada = event.target.closest('[data-comodin-jugador]');
-            if (entrada) cambiarComodinAutista(entrada.dataset.comodinJugador, entrada.checked);
-        });
-
         const tablaEditor = document.getElementById('tabla-editor');
         tablaEditor.addEventListener('change', event => {
             const entrada = event.target.closest('[data-field]');
@@ -2166,10 +2042,6 @@
                 delete db[nombre];
                 seleccionados = seleccionados.filter(jugador => jugador !== nombre);
                 comodinPermitidos = comodinPermitidos.filter(jugador => jugador !== nombre);
-                if (comodinAutistaJugador === nombre) {
-                    comodinAutistaActivo = false;
-                    comodinAutistaJugador = null;
-                }
                 actualizarInterfaz();
                 renderEditor();
             }
