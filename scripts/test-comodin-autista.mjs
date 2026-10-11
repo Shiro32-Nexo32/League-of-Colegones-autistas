@@ -9,10 +9,12 @@ assert.notEqual(start, -1, 'No se encontró registrarVictoria.');
 assert.notEqual(end, -1, 'No se encontró el final de registrarVictoria.');
 const functionSource = html.slice(start, end);
 
-function runRegistration(winner) {
+function runRegistration(winner, comodinJugador = 'gordi') {
     const context = {
         partidaPendiente: true,
         comodinAutistaActivo: true,
+        comodinAutistaJugador: comodinJugador,
+        comodinPermitidos: [comodinJugador],
         equiposActuales: { blue: ['gordi', 'Ana'], red: ['Biel', 'Carla'] },
         db: {
             gordi: { w: 2, m: 5, games: 8, level: 1 },
@@ -59,7 +61,38 @@ for (const winner of ['blue', 'red']) {
     assert.equal(context.historialPartidas[0].mvpBlue, null, 'Gordi no debe quedar registrado como MVP de esa partida.');
     assert.equal(context.historialPartidas[0].mvpRed, 'Carla');
     assert.equal(context.comodinAutistaActivo, false, 'El comodín debe reiniciarse después de registrar la partida.');
+    assert.equal(context.comodinAutistaJugador, null, 'El jugador que usó el comodín debe limpiarse tras registrar.');
     assert.equal(context.partidaPendiente, false);
 }
 
-console.log('OK: el Comodin de Autista excluye a Gordi de partidas, victorias y MVP sin afectar al resto.');
+const otroJugador = runRegistration('blue', 'Ana');
+assert.deepEqual(
+    { w: otroJugador.db.Ana.w, m: otroJugador.db.Ana.m, games: otroJugador.db.Ana.games },
+    { w: 4, m: 1, games: 10 },
+    'Un jugador autorizado desde el editor también debe quedar exento de sus estadísticas individuales.'
+);
+assert.equal(otroJugador.historialPartidas[0].comodinAutista, 'Ana');
+assert.equal(otroJugador.db.gordi.m, 6, 'El MVP de un jugador distinto al exento debe seguir sumando.');
+
+const htmlRemakeStart = html.indexOf('    function remakePartida() {');
+const htmlRemakeEnd = html.indexOf('    function registrarMVP(', htmlRemakeStart);
+assert.notEqual(htmlRemakeStart, -1, 'Debe existir la función de remake.');
+assert.notEqual(htmlRemakeEnd, -1, 'No se encontró el final de remakePartida.');
+const remakeSource = html.slice(htmlRemakeStart, htmlRemakeEnd);
+let launchCount = 0;
+const remakeContext = {
+    partidaPendiente: true,
+    sorteoEnCurso: false,
+    mvpElegido: { blue: true, red: true },
+    mvpActual: { blue: 'Ana', red: 'Biel' },
+    document: { getElementById: () => ({ style: { display: 'block' } }) },
+    lanzarSorteoSequencial() { launchCount += 1; return 'started'; }
+};
+runInNewContext(remakeSource + '\nglobalThis.__remake = remakePartida;', remakeContext);
+assert.equal(remakeContext.__remake(), 'started');
+assert.equal(remakeContext.partidaPendiente, false, 'El remake descarta el sorteo sin registrar el resultado.');
+assert.equal(remakeContext.mvpElegido.blue, false, 'El remake debe limpiar el MVP azul anterior.');
+assert.equal(remakeContext.mvpElegido.red, false, 'El remake debe limpiar el MVP rojo anterior.');
+assert.equal(launchCount, 1, 'El remake debe iniciar otro sorteo.');
+
+console.log('OK: el comodín es configurable por jugador y Remake vuelve a sortear sin registrar la partida anterior.');

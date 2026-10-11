@@ -30,22 +30,24 @@ let response = await worker.fetch(request("GET"), env);
 assert.equal(response.status, 200);
 assert.deepEqual(await response.json(), { ok: true, initialized: false, state: null });
 
-const initial = { players: { Shiro: { w: 1, m: 0, games: 2, level: 5 } }, history: [] };
+const initial = { players: { Shiro: { w: 1, m: 0, games: 2, level: 5 } }, history: [], comodinAllowed: ["Shiro"] };
 response = await worker.fetch(request("POST", { action: "initialize", state: initial }), env);
 assert.equal(response.status, 201);
 let payload = await response.json();
 assert.equal(payload.state.revision, 1);
 assert.equal(payload.state.players.Shiro.w, 1);
+assert.deepEqual(payload.state.comodinAllowed, ["Shiro"], "La lista de jugadores autorizados debe sincronizarse.");
 
 response = await worker.fetch(request("POST", { action: "initialize", state: initial }), env);
 assert.equal(response.status, 409);
 
-const updated = { players: { Shiro: { w: 2, m: 1, games: 3, level: 5 } }, history: [] };
+const updated = { players: { Shiro: { w: 2, m: 1, games: 3, level: 5 } }, history: [], comodinAllowed: [] };
 response = await worker.fetch(request("POST", { action: "save", revision: 1, state: updated }), env);
 assert.equal(response.status, 200);
 payload = await response.json();
 assert.equal(payload.state.revision, 2);
 assert.equal(payload.state.players.Shiro.w, 2);
+assert.deepEqual(payload.state.comodinAllowed, [], "Una lista vacía debe respetarse, no restaurar el valor por defecto.");
 
 response = await worker.fetch(request("POST", { action: "save", revision: 1, state: initial }), env);
 assert.equal(response.status, 409);
