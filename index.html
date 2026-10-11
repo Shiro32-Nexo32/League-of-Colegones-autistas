@@ -1722,7 +1722,7 @@
     function registrarMVP(equipo, name, button) {
         if (!partidaPendiente || !['blue', 'red'].includes(equipo) || mvpElegido[equipo]) return;
         if (!equiposActuales[equipo].includes(name) || !db[name]) return;
-        if (comodinAplicaEnPartidaActual() && esGordi(name)) return;
+        if (comodinAplicaEnPartidaActual(name)) return;
 
         mvpElegido[equipo] = true;
         mvpActual[equipo] = name;
