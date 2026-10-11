@@ -300,8 +300,13 @@
     .slot.active { border-color: rgba(232,199,120,.25); background: rgba(232,199,120,.045); }
     .champion-remake-button { flex: 0 0 auto; padding: 7px 8px; border: 1px solid rgba(194,139,255,.3); border-radius: 8px; color: #d8b4ff; background: rgba(133,77,195,.09); font-size: .62rem; font-weight: 800; white-space: nowrap; }
     .champion-remake-button:not(:disabled):hover { border-color: rgba(194,139,255,.6); background: rgba(133,77,195,.18); }
-    .comodin-activation-button { border-color: rgba(194,139,255,.45) !important; color: #e3caff !important; background: rgba(133,77,195,.16) !important; }
-    .comodin-activation-button:hover { background: rgba(133,77,195,.25) !important; }
+    .slot-player-info { flex: 1; min-width: 0; }
+    .slot-player-name { display: flex; align-items: center; gap: 7px; min-width: 0; margin-bottom: 2px; }
+    .slot-player-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .comodin-toggle-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 29px; width: 29px; height: 29px; padding: 0; border: 1px solid rgba(194,139,255,.28); border-radius: 7px; color: #c9b4e9; background: rgba(133,77,195,.07); font-size: 16px; line-height: 1; cursor: pointer; }
+    .comodin-toggle-button:not(:disabled):hover { border-color: rgba(194,139,255,.68); background: rgba(133,77,195,.18); }
+    .comodin-toggle-button.selected { border-color: rgba(255,190,96,.8); background: rgba(255,166,64,.18); box-shadow: 0 0 0 1px rgba(255,190,96,.16); }
+    .comodin-toggle-button:disabled { opacity: .65; cursor: not-allowed; }
     .mvp-button { margin-left: auto; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; color: #90a3be; background: rgba(255,255,255,.04); font-size: .68rem; }
     .mvp-button.selected { border-color: rgba(232,199,120,.55); color: var(--gold-strong); background: rgba(232,199,120,.11); }
     footer { max-width: 1500px; margin: 28px auto 0; padding: 14px 0 0; border-top: 1px solid var(--line); color: #586d88; font-size: .67rem; }
@@ -537,9 +542,8 @@
                         <button id="generar-equipos-button" type="button" onclick="lanzarSorteoSequencial()">GENERAR EQUIPOS Y CAMPEONES</button>
                         <div id="winner-panel" style="display:none;">
                             <h2>Equipo ganador</h2>
-                            <div style="margin-bottom:14px;color:var(--muted);font-size:.83rem;">Selecciona un MVP de cada equipo si corresponde, gestiona el comodín cuando toque y registra el ganador. Si queréis repetir el sorteo, usad Remake.</div>
+                            <div style="margin-bottom:14px;color:var(--muted);font-size:.83rem;">Selecciona un MVP de cada equipo si corresponde. Activa o desactiva el comodín pulsando el cuadrado 🤡 junto al nombre del jugador. Si queréis repetir el sorteo, usad Remake.</div>
                             <button type="button" id="remake-button" onclick="remakePartida()">↻ REMAKE · VOLVER A SORTEAR</button>
-                            <button type="button" class="comodin-activation-button" onclick="gestionarComodinPartida()">🎭 GESTIONAR COMODÍN</button>
                             <button type="button" onclick="registrarVictoria('blue')">EQUIPO AZUL · VICTORIA</button>
                             <button type="button" onclick="registrarVictoria('red')">EQUIPO ROJO · VICTORIA</button>
                         </div>
@@ -1568,29 +1572,24 @@
                     comodinAplicaEnPartidaActual(boton.dataset.player) ||
                     Boolean(otroMvpElegido);
             });
+
+            const botonesComodin = [...document.querySelectorAll('#slots-' + lado + ' .comodin-toggle-button')];
+            botonesComodin.forEach(boton => {
+                const activo = comodinesActivosPartida.includes(boton.dataset.player);
+                boton.classList.toggle('selected', activo);
+                boton.setAttribute('aria-pressed', String(activo));
+                boton.title = activo ? 'Desactivar comodín' : 'Activar comodín';
+                boton.setAttribute('aria-label', activo ? 'Desactivar comodín' : 'Activar comodín');
+                boton.disabled = !partidaPendiente;
+            });
         });
     }
 
-    function gestionarComodinPartida() {
-        if (!partidaPendiente || sorteoEnCurso) {
-            return alert('El comodín solo se puede activar durante una partida pendiente.');
-        }
-
-        const respuesta = prompt(
-            'Escribe el nombre del jugador que quiere optar al comodín. Para desactivarlo, introduce su nombre otra vez. No se mostrará un listado de jugadores.'
-        );
-        if (respuesta === null) return;
-
-        const clave = respuesta.trim().toLocaleLowerCase('es-ES');
-        if (!clave) return;
-
-        const jugadoresDeLaPartida = [...equiposActuales.blue, ...equiposActuales.red];
-        const nombre = jugadoresDeLaPartida.find(jugador =>
-            String(jugador).trim().toLocaleLowerCase('es-ES') === clave
-        );
-        if (!nombre) return alert('Ese jugador no participa en esta partida.');
-        if (!db[nombre] || !esJugadorPermitidoComodin(nombre)) {
-            return alert('Ese jugador no puede optar al comodín en esta partida.');
+    function toggleComodinJugadorPartida(nombre) {
+        if (!partidaPendiente || sorteoEnCurso) return;
+        if (!['blue', 'red'].some(equipo => equiposActuales[equipo].includes(nombre)) || !db[nombre]) return;
+        if (!esJugadorPermitidoComodin(nombre)) {
+            return alert('Este jugador no tiene permiso para usar el comodín. Se configura desde el modo editor.');
         }
 
         const yaActivo = comodinesActivosPartida.includes(nombre);
@@ -1606,7 +1605,6 @@
         }
 
         actualizarBotonesMVPComodin();
-        alert(yaActivo ? 'Comodín desactivado para esta partida.' : 'Comodín activado para esta partida.');
     }
 
     function renderSelector() {
@@ -1914,7 +1912,7 @@
             const slot = document.createElement('div');
             slot.className = 'slot visible';
             const equipo = containerId.replace("slots-", "");
-            slot.innerHTML = `<img src="" alt="" style="filter:grayscale(1)"> <div><b>${escaparHTML(name)}</b><br><small class="champ-name">...</small></div><button type="button" class="champion-remake-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" aria-label="Volver a sortear el campeón de ${escaparHTML(name)}" title="Cambiar solo este campeón" disabled>↻ CHAMP</button><button class="mvp-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" disabled>MVP</button>`;
+            slot.innerHTML = `<img src="" alt="" style="filter:grayscale(1)"> <div class="slot-player-info"><div class="slot-player-name"><b>${escaparHTML(name)}</b><button type="button" class="comodin-toggle-button" data-player="${escaparHTML(name)}" aria-label="Activar comodín" aria-pressed="false" title="Activar comodín" disabled>🤡</button></div><small class="champ-name">...</small></div><button type="button" class="champion-remake-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" aria-label="Volver a sortear el campeón de ${escaparHTML(name)}" title="Cambiar solo este campeón" disabled>↻ CHAMP</button><button class="mvp-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" disabled>MVP</button>`;
             container.appendChild(slot);
             const img = slot.querySelector('img');
             const txt = slot.querySelector('.champ-name');
@@ -2147,6 +2145,11 @@
 
         ['blue', 'red'].forEach(equipo => {
             document.getElementById('slots-' + equipo).addEventListener('click', event => {
+                const botonComodin = event.target.closest('.comodin-toggle-button');
+                if (botonComodin) {
+                    toggleComodinJugadorPartida(botonComodin.dataset.player);
+                    return;
+                }
                 const botonRemakeCampeon = event.target.closest('.champion-remake-button');
                 if (botonRemakeCampeon) {
                     remakeCampeon(botonRemakeCampeon.dataset.equipo, botonRemakeCampeon.dataset.player);
