@@ -4,6 +4,10 @@ Aplicación web estática para organizar partidas personalizadas de League of Le
 
 ## Funcionalidades
 
+- Interfaz responsive tipo dashboard con navegación compacta: Inicio, Historial, Estadísticas de jugadores, Análisis y Nueva partida.
+- Estadísticas de campeones por jugador basadas en las últimas 20 partidas conservadas.
+- Analista automático en formato chat: usa reglas y estadísticas locales, no un modelo de IA externo. El historial de ese chat se guarda solo en el navegador y no se sincroniza.
+
 - Ranking con puntos, victorias, MVP y porcentaje de victorias.
 - Selección de entre 2 y 10 jugadores.
 - Sorteo de equipos mediante Fisher–Yates. Si el número de jugadores es impar, busca el equilibrio por nivel y sortea entre todas las combinaciones empatadas como óptimas. La aleatoriedad usa `Math.random()` y no es criptográfica.
@@ -54,6 +58,7 @@ node scripts/test-team-randomization.mjs
 node scripts/test-champion-randomization.mjs
 node scripts/test-victory-registration.mjs
 node scripts/test-cloudflare-worker.mjs
+node scripts/test-player-statistics.mjs
 ```
 
 GitHub Actions ejecuta estas comprobaciones cuando hay cambios en `main` o se abre una pull request hacia esa rama.
