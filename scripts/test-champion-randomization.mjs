@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const start = html.indexOf('    function obtenerCampeonesDisponiblesEnPartida() {');
+const start = html.indexOf('    function obtenerCampeonesDisponiblesEnPartida(');
 const end = html.indexOf('    function animarPareja(', start);
 
 assert.notEqual(start, -1, 'No se encontró obtenerCampeonesDisponiblesEnPartida en index.html.');
@@ -72,5 +72,47 @@ assert.match(
     /botonRemakeCampeon\.dataset\.equipo, botonRemakeCampeon\.dataset\.player/,
     'El evento debe volver a sortear solo el campeón del jugador seleccionado.'
 );
+
+
+const championRemakeStart = html.indexOf('    function obtenerCampeonesDisponiblesEnPartida(');
+const championRemakeEnd = html.indexOf('    function animarPareja(', championRemakeStart);
+const championRemakeSource = html.slice(championRemakeStart, championRemakeEnd);
+const players = ['Alicia', 'Carla', 'Bruno', 'Diego'];
+const assigned = {
+    blue: { Alicia: { name: 'A', image: 'old-A.png' }, Carla: { name: 'C', image: 'old-C.png' } },
+    red: { Bruno: { name: 'B', image: 'old-B.png' }, Diego: { name: 'D', image: 'old-D.png' } }
+};
+const image = { src: '', alt: '', style: {} };
+const championText = { textContent: '' };
+const slot = {
+    classList: { add() {} },
+    querySelector(selector) {
+        if (selector === 'img') return image;
+        if (selector === '.champ-name') return championText;
+        if (selector === '.mvp-button') return { dataset: { player: 'Alicia' } };
+        return null;
+    }
+};
+const container = { querySelectorAll: () => [slot] };
+const remakeBehaviorContext = {
+    CHAMPIONS: ['A', 'B', 'C', 'D', 'E'].map(name => ({ name, id: name })),
+    campeonesActuales: assigned,
+    equiposActuales: { blue: ['Alicia', 'Carla'], red: ['Bruno', 'Diego'] },
+    db: Object.fromEntries(players.map(name => [name, {}])),
+    partidaPendiente: true,
+    sorteoEnCurso: false,
+    VERSION: 'test-version',
+    document: { getElementById: () => container },
+    playBoom() {},
+    alert(message) { throw new Error(message); }
+};
+runInNewContext(championRemakeSource + '\\nglobalThis.__remakeCampeon = remakeCampeon;', remakeBehaviorContext);
+remakeBehaviorContext.__remakeCampeon('blue', 'Alicia');
+assert.equal(assigned.blue.Alicia.name, 'E', 'Debe reasignar solo el campeón del jugador elegido.');
+assert.equal(assigned.blue.Carla.name, 'C', 'No debe cambiar el campeón de otro jugador del mismo equipo.');
+assert.equal(assigned.red.Bruno.name, 'B', 'No debe cambiar ningún campeón del equipo contrario.');
+assert.equal(assigned.red.Diego.name, 'D', 'No debe cambiar otros campeones asignados.');
+assert.match(image.src, /\\/E\\.png$/, 'La imagen debe actualizarse al nuevo campeón.');
+assert.equal(championText.textContent, 'E', 'El texto del campeón debe actualizarse.');
 
 console.log('OK: ningún campeón asignado puede repetirse entre equipos durante la misma partida.');
