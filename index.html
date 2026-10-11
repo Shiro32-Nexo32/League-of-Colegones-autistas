@@ -300,6 +300,8 @@
     .slot.active { border-color: rgba(232,199,120,.25); background: rgba(232,199,120,.045); }
     .champion-remake-button { flex: 0 0 auto; padding: 7px 8px; border: 1px solid rgba(194,139,255,.3); border-radius: 8px; color: #d8b4ff; background: rgba(133,77,195,.09); font-size: .62rem; font-weight: 800; white-space: nowrap; }
     .champion-remake-button:not(:disabled):hover { border-color: rgba(194,139,255,.6); background: rgba(133,77,195,.18); }
+    .comodin-activation-button { border-color: rgba(194,139,255,.45) !important; color: #e3caff !important; background: rgba(133,77,195,.16) !important; }
+    .comodin-activation-button:hover { background: rgba(133,77,195,.25) !important; }
     .mvp-button { margin-left: auto; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; color: #90a3be; background: rgba(255,255,255,.04); font-size: .68rem; }
     .mvp-button.selected { border-color: rgba(232,199,120,.55); color: var(--gold-strong); background: rgba(232,199,120,.11); }
     footer { max-width: 1500px; margin: 28px auto 0; padding: 14px 0 0; border-top: 1px solid var(--line); color: #586d88; font-size: .67rem; }
@@ -510,8 +512,8 @@
                             </table>
                         </div>
                         <div class="comodin-editor-config">
-                            <h3>Etiqueta interna: excluir estadísticas individuales</h3>
-                            <p>Marca los jugadores cuyas partidas, victorias, MVP y estadísticas de campeones no deben contar cuando participen. Esta lista solo aparece en el modo editor.</p>
+                            <h3>Permiso para optar al comodín</h3>
+                            <p>Marca quién puede activar el comodín durante una partida. Estar marcado aquí no excluye automáticamente sus estadísticas: el comodín debe activarse en esa partida. Su uso no aparecerá como etiqueta en el historial público.</p>
                             <div id="comodin-permitidos-list" class="comodin-permitidos-list"></div>
                         </div>
                         <div class="editor-actions">
@@ -535,8 +537,9 @@
                         <button id="generar-equipos-button" type="button" onclick="lanzarSorteoSequencial()">GENERAR EQUIPOS Y CAMPEONES</button>
                         <div id="winner-panel" style="display:none;">
                             <h2>Equipo ganador</h2>
-                            <div style="margin-bottom:14px;color:var(--muted);font-size:.83rem;">Selecciona un MVP de cada equipo si corresponde y registra el ganador. Si queréis repetir el sorteo, usad Remake.</div>
+                            <div style="margin-bottom:14px;color:var(--muted);font-size:.83rem;">Selecciona un MVP de cada equipo si corresponde, gestiona el comodín cuando toque y registra el ganador. Si queréis repetir el sorteo, usad Remake.</div>
                             <button type="button" id="remake-button" onclick="remakePartida()">↻ REMAKE · VOLVER A SORTEAR</button>
+                            <button type="button" class="comodin-activation-button" onclick="gestionarComodinPartida()">🎭 GESTIONAR COMODÍN</button>
                             <button type="button" onclick="registrarVictoria('blue')">EQUIPO AZUL · VICTORIA</button>
                             <button type="button" onclick="registrarVictoria('red')">EQUIPO ROJO · VICTORIA</button>
                         </div>
@@ -779,6 +782,7 @@
     let mvpElegido = { blue: false, red: false };
     let mvpActual = { blue: null, red: null };
     let campeonesActuales = { blue: {}, red: {} };
+    let comodinesActivosPartida = [];
     let historialPartidas = leerJSONLocalStorage('lol_match_history', []);
     if (!Array.isArray(historialPartidas)) historialPartidas = [];
     historialPartidas = historialPartidas
@@ -1485,7 +1489,7 @@
     }
 
     function comodinAplicaEnPartidaActual(nombre) {
-        if (!nombre || !esJugadorPermitidoComodin(nombre)) return false;
+        if (!nombre || !esJugadorPermitidoComodin(nombre) || !comodinesActivosPartida.includes(nombre)) return false;
         const presentes = partidaPendiente
             ? [...equiposActuales.blue, ...equiposActuales.red]
             : seleccionados;
@@ -1495,14 +1499,54 @@
     function actualizarBotonesMVPComodin() {
         ['blue', 'red'].forEach(lado => {
             const botones = [...document.querySelectorAll('#slots-' + lado + ' .mvp-button')];
-            if (mvpElegido[lado] && mvpActual[lado]) {
-                botones.forEach(boton => {
-                    boton.disabled = boton.dataset.player !== mvpActual[lado] || comodinAplicaEnPartidaActual(boton.dataset.player);
-                });
-            } else {
-                botones.forEach(boton => { boton.disabled = comodinAplicaEnPartidaActual(boton.dataset.player); });
-            }
+            botones.forEach(boton => {
+                const esMvpActual = mvpElegido[lado] && mvpActual[lado] === boton.dataset.player;
+                const otroMvpElegido = mvpElegido[lado] && mvpActual[lado] && mvpActual[lado] !== boton.dataset.player;
+                boton.classList.toggle('selected', Boolean(esMvpActual));
+                boton.innerText = esMvpActual ? 'MVP ✓' : 'MVP';
+                boton.disabled = !partidaPendiente ||
+                    comodinAplicaEnPartidaActual(boton.dataset.player) ||
+                    Boolean(otroMvpElegido);
+            });
         });
+    }
+
+    function gestionarComodinPartida() {
+        if (!partidaPendiente || sorteoEnCurso) {
+            return alert('El comodín solo se puede activar durante una partida pendiente.');
+        }
+
+        const respuesta = prompt(
+            'Escribe el nombre del jugador que quiere optar al comodín. Para desactivarlo, introduce su nombre otra vez. No se mostrará un listado de jugadores.'
+        );
+        if (respuesta === null) return;
+
+        const clave = respuesta.trim().toLocaleLowerCase('es-ES');
+        if (!clave) return;
+
+        const jugadoresDeLaPartida = [...equiposActuales.blue, ...equiposActuales.red];
+        const nombre = jugadoresDeLaPartida.find(jugador =>
+            String(jugador).trim().toLocaleLowerCase('es-ES') === clave
+        );
+        if (!nombre) return alert('Ese jugador no participa en esta partida.');
+        if (!db[nombre] || !esJugadorPermitidoComodin(nombre)) {
+            return alert('Ese jugador no puede optar al comodín en esta partida.');
+        }
+
+        const yaActivo = comodinesActivosPartida.includes(nombre);
+        if (yaActivo) {
+            comodinesActivosPartida = comodinesActivosPartida.filter(jugador => jugador !== nombre);
+        } else {
+            comodinesActivosPartida.push(nombre);
+            const lado = ['blue', 'red'].find(equipo => equiposActuales[equipo].includes(nombre));
+            if (lado && mvpActual[lado] === nombre) {
+                mvpElegido[lado] = false;
+                mvpActual[lado] = null;
+            }
+        }
+
+        actualizarBotonesMVPComodin();
+        alert(yaActivo ? 'Comodín desactivado para esta partida.' : 'Comodín activado para esta partida.');
     }
 
     function renderSelector() {
@@ -1582,6 +1626,7 @@
             }
 
             equiposActuales = { blue: [...blueSide], red: [...redSide] };
+            comodinesActivosPartida = [];
             mvpElegido = { blue: false, red: false };
             mvpActual = { blue: null, red: null };
             campeonesActuales = { blue: {}, red: {} };
@@ -1621,6 +1666,7 @@
         if (!partidaPendiente || sorteoEnCurso) return;
         // Descarta el sorteo sin resultado, historial ni cambios en el ranking.
         partidaPendiente = false;
+        comodinesActivosPartida = [];
         mvpElegido = { blue: false, red: false };
         mvpActual = { blue: null, red: null };
         document.getElementById('winner-panel').style.display = 'none';
@@ -1634,12 +1680,7 @@
 
         mvpElegido[equipo] = true;
         mvpActual[equipo] = name;
-        button.classList.add('selected');
-        button.innerText = 'MVP ✓';
-
-        document.querySelectorAll('#slots-' + equipo + ' .mvp-button').forEach(btn => {
-            if (btn !== button) btn.disabled = true;
-        });
+        actualizarBotonesMVPComodin();
 
     }
 
@@ -1651,9 +1692,9 @@
             return alert("No se puede registrar la partida porque falta un jugador en el ranking. Revisa los datos antes de continuar.");
         }
 
-        const jugadoresExcluidos = jugadoresDeLaPartida.filter(name => esJugadorPermitidoComodin(name));
+        const jugadoresExcluidos = jugadoresDeLaPartida.filter(name => comodinAplicaEnPartidaActual(name));
 
-        // La etiqueta interna excluye a estos jugadores de sus estadísticas personales en esta partida.
+        // Solo cuentan como comodín quienes lo hayan activado durante esta partida.
         jugadoresDeLaPartida.forEach(name => {
             if (jugadoresExcluidos.includes(name)) return;
             db[name].games = enteroNoNegativo(db[name].games) + 1;
@@ -1694,6 +1735,7 @@
 
         historialPartidas.unshift(partida);
         historialPartidas = historialPartidas.slice(0, 20);
+        comodinesActivosPartida = [];
 
         partidaPendiente = false;
         document.getElementById('winner-panel').style.display = 'none';
@@ -2009,6 +2051,7 @@
             seleccionados = [];
             equiposActuales = { blue: [], red: [] };
             campeonesActuales = { blue: {}, red: {} };
+            comodinesActivosPartida = [];
             mvpElegido = { blue: false, red: false };
             mvpActual = { blue: null, red: null };
             partidaPendiente = false;
