@@ -91,7 +91,8 @@ const remakeContext = {
 runInNewContext(remakeSource + '\nglobalThis.__remake = remakePartida;', remakeContext);
 assert.equal(remakeContext.__remake(), 'started');
 assert.equal(remakeContext.partidaPendiente, false, 'El remake descarta el sorteo sin registrar el resultado.');
-assert.deepEqual(remakeContext.mvpElegido, { blue: false, red: false }, 'El remake debe limpiar los MVP anteriores.');
+assert.equal(remakeContext.mvpElegido.blue, false, 'El remake debe limpiar el MVP azul anterior.');
+assert.equal(remakeContext.mvpElegido.red, false, 'El remake debe limpiar el MVP rojo anterior.');
 assert.equal(remakeContext.lanzamientos, 1, 'El remake debe iniciar otro sorteo.');
 
 console.log('OK: el comodín es configurable por jugador y Remake vuelve a sortear sin registrar la partida anterior.');
