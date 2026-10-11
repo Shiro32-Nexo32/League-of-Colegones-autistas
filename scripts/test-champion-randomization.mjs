@@ -112,7 +112,7 @@ assert.equal(assigned.blue.Alicia.name, 'E', 'Debe reasignar solo el campeón de
 assert.equal(assigned.blue.Carla.name, 'C', 'No debe cambiar el campeón de otro jugador del mismo equipo.');
 assert.equal(assigned.red.Bruno.name, 'B', 'No debe cambiar ningún campeón del equipo contrario.');
 assert.equal(assigned.red.Diego.name, 'D', 'No debe cambiar otros campeones asignados.');
-assert.match(image.src, /\\/E\\.png$/, 'La imagen debe actualizarse al nuevo campeón.');
+assert.ok(image.src.endsWith('/E.png'), 'La imagen debe actualizarse al nuevo campeón.');
 assert.equal(championText.textContent, 'E', 'El texto del campeón debe actualizarse.');
 
 console.log('OK: ningún campeón asignado puede repetirse entre equipos durante la misma partida.');
