@@ -106,7 +106,7 @@ const remakeBehaviorContext = {
     playBoom() {},
     alert(message) { throw new Error(message); }
 };
-runInNewContext(championRemakeSource + '\\nglobalThis.__remakeCampeon = remakeCampeon;', remakeBehaviorContext);
+runInNewContext(championRemakeSource + '\nglobalThis.__remakeCampeon = remakeCampeon;', remakeBehaviorContext);
 remakeBehaviorContext.__remakeCampeon('blue', 'Alicia');
 assert.equal(assigned.blue.Alicia.name, 'E', 'Debe reasignar solo el campeón del jugador elegido.');
 assert.equal(assigned.blue.Carla.name, 'C', 'No debe cambiar el campeón de otro jugador del mismo equipo.');
