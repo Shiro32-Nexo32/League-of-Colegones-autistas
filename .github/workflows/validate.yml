@@ -31,3 +31,5 @@ jobs:
         run: node scripts/test-cloudflare-worker.mjs
       - name: Test player statistics and local analysis
         run: node scripts/test-player-statistics.mjs
+      - name: Test Comodin de Autista
+        run: node scripts/test-comodin-autista.mjs
