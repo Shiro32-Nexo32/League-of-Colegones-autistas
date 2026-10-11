@@ -56,7 +56,7 @@ for (const winner of ['blue', 'red']) {
     assert.equal(context.db.Ana.w, 4 + (winner === 'blue' ? 1 : 0));
     assert.equal(context.db.Carla.w, 6 + (winner === 'red' ? 1 : 0));
     assert.equal(context.historialPartidas.length, 1);
-    assert.deepEqual(context.historialPartidas[0].comodinAutista, ['gordi']);
+    assert.deepEqual([...context.historialPartidas[0].comodinAutista], ['gordi']);
     assert.equal(context.historialPartidas[0].mvpBlue, null, 'Un jugador etiquetado no debe contar como MVP.');
     assert.equal(context.historialPartidas[0].mvpRed, 'Carla');
     assert.equal(context.partidaPendiente, false);
@@ -76,7 +76,7 @@ assert.deepEqual(
 );
 assert.equal(variosEtiquetados.db.gordi.games, 9, 'Los jugadores sin etiqueta deben contar normalmente.');
 assert.equal(variosEtiquetados.db.gordi.m, 6, 'El MVP sin etiqueta debe contar normalmente.');
-assert.deepEqual(variosEtiquetados.historialPartidas[0].comodinAutista, ['Ana', 'Carla']);
+assert.deepEqual([...variosEtiquetados.historialPartidas[0].comodinAutista], ['Ana', 'Carla']);
 assert.equal(variosEtiquetados.historialPartidas[0].mvpBlue, 'gordi');
 assert.equal(variosEtiquetados.historialPartidas[0].mvpRed, null);
 
