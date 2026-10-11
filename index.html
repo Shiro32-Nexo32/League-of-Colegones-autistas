@@ -278,6 +278,20 @@
     .player-card:hover { border-color: rgba(77,169,255,.35); background: rgba(77,169,255,.055); }
     .player-card.selected { border-color: rgba(232,199,120,.6); color: var(--gold-strong); background: rgba(232,199,120,.09); box-shadow: inset 0 0 0 1px rgba(232,199,120,.08); }
     .player-card.locked { opacity: .5; cursor: not-allowed; }
+    .comodin-control {
+        display: none; align-items: center; justify-content: space-between; gap: 14px;
+        margin: 14px 0 17px; padding: 14px 16px; border: 1px solid rgba(194, 139, 255, .26);
+        border-radius: 13px; background: linear-gradient(100deg, rgba(133, 77, 195, .12), rgba(232, 199, 120, .045));
+    }
+    .comodin-toggle { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; min-width: 0; }
+    .comodin-toggle input { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; accent-color: #c58cff; cursor: pointer; }
+    .comodin-copy strong { display: block; color: #e8d5ff; font-size: .83rem; letter-spacing: .015em; }
+    .comodin-copy small { display: block; max-width: 640px; margin-top: 5px; color: #a9a0c4; font-size: .72rem; line-height: 1.5; }
+    .comodin-status { flex: 0 0 auto; padding: 6px 8px; border: 1px solid rgba(194, 139, 255, .25); border-radius: 99px; color: #d8b4ff; background: rgba(133, 77, 195, .09); font-size: .61rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+    .comodin-control.active { border-color: rgba(194, 139, 255, .55); background: linear-gradient(100deg, rgba(133, 77, 195, .22), rgba(232, 199, 120, .07)); }
+    .comodin-control.active .comodin-status { color: #f0dfff; border-color: rgba(194,139,255,.5); }
+    .comodin-tag { display: inline-block; margin-left: 5px; padding: 3px 6px; border: 1px solid rgba(194,139,255,.27); border-radius: 6px; color: #e2c9ff; background: rgba(133,77,195,.12); font-size: .59rem; font-weight: 850; vertical-align: middle; }
+    .comodin-history-note { margin: 0 0 12px; padding: 10px 12px; border: 1px solid rgba(194,139,255,.2); border-radius: 10px; color: #d8c5f4; background: rgba(133,77,195,.075); font-size: .75rem; line-height: 1.5; }
     #generar-equipos-button { width: 100%; min-height: 48px; padding: 13px; border: 1px solid rgba(77,169,255,.32); border-radius: 12px; color: #e9f4ff; background: linear-gradient(100deg, rgba(43,122,190,.28), rgba(77,169,255,.12)); font-size: .87rem; font-weight: 900; letter-spacing: .08em; }
     #winner-panel { margin-top: 18px; padding: 22px; border: 1px solid rgba(232,199,120,.42); border-radius: 15px; text-align: center; background: rgba(232,199,120,.055); }
     #winner-panel h2 { margin-top: 0; }
@@ -519,6 +533,16 @@
                             <span class="section-tag">De 2 a 10 jugadores</span>
                         </div>
                         <div id="grid-jugadores" class="selector-grid"></div>
+                        <div id="comodin-autista-control" class="comodin-control" style="display:none;">
+                            <label class="comodin-toggle" for="comodin-autista-checkbox">
+                                <input id="comodin-autista-checkbox" type="checkbox" onchange="cambiarComodinAutista(this.checked)">
+                                <span class="comodin-copy">
+                                    <strong>Comodin de Autista</strong>
+                                    <small id="comodin-autista-description">Actívalo para que Gordi juegue la partida sin que el resultado afecte a sus estadísticas individuales.</small>
+                                </span>
+                            </label>
+                            <span id="comodin-autista-status" class="comodin-status">Por partida</span>
+                        </div>
                         <button id="generar-equipos-button" type="button" onclick="lanzarSorteoSequencial()">GENERAR EQUIPOS Y CAMPEONES</button>
                         <div id="winner-panel" style="display:none;">
                             <h2>Equipo ganador</h2>
@@ -739,6 +763,7 @@
     let equiposActuales = { blue: [], red: [] };
     let partidaPendiente = false;
     let sorteoEnCurso = false;
+    let comodinAutistaActivo = false;
     let mvpElegido = { blue: false, red: false };
     let mvpActual = { blue: null, red: null };
     let campeonesActuales = { blue: {}, red: {} };
@@ -1166,6 +1191,7 @@
         let partidas = 0;
         let victorias = 0;
         historialPartidas.forEach(partida => {
+            if (estaJugadorExentoEnPartida(partida, nombre)) return;
             const azul = datosJugadoresDePartida(partida, 'blue');
             const rojo = datosJugadoresDePartida(partida, 'red');
             const jugadorAzul = azul.find(jugador => jugador.name === nombre);
@@ -1247,6 +1273,7 @@
         historialPartidas.forEach(partida => {
             ['blue', 'red'].forEach(lado => {
                 datosJugadoresDePartida(partida, lado).forEach(jugador => {
+                    if (estaJugadorExentoEnPartida(partida, jugador.name)) return;
                     if (!jugador.champion) return;
                     if (!campeones[jugador.champion]) {
                         campeones[jugador.champion] = { name: jugador.champion, played: 0, wins: 0, image: jugador.image };
@@ -1413,6 +1440,95 @@
         if (pagina === 'partida' && accesoPartida) renderSelector();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    function esGordi(nombre) {
+        return String(nombre || '').trim().toLocaleLowerCase('es-ES') === 'gordi';
+    }
+
+    function obtenerNombreGordi() {
+        return Object.keys(db).find(nombre => esGordi(nombre)) || null;
+    }
+
+    function estaJugadorExentoEnPartida(partida, nombre) {
+        return Boolean(
+            partida &&
+            typeof partida.comodinAutista === 'string' &&
+            partida.comodinAutista.trim() &&
+            partida.comodinAutista.trim().toLocaleLowerCase('es-ES') === String(nombre || '').trim().toLocaleLowerCase('es-ES')
+        );
+    }
+
+    function comodinAplicaEnPartidaActual() {
+        if (!comodinAutistaActivo || !partidaPendiente) return false;
+        const gordi = obtenerNombreGordi();
+        return Boolean(gordi && [...equiposActuales.blue, ...equiposActuales.red].some(nombre => esGordi(nombre)));
+    }
+
+    function actualizarBotonesMVPComodin() {
+        ['blue', 'red'].forEach(lado => {
+            const botones = [...document.querySelectorAll('#slots-' + lado + ' .mvp-button')];
+            if (mvpElegido[lado] && mvpActual[lado]) {
+                botones.forEach(boton => { boton.disabled = boton.dataset.player !== mvpActual[lado]; });
+            } else {
+                botones.forEach(boton => {
+                    boton.disabled = Boolean(comodinAplicaEnPartidaActual() && esGordi(boton.dataset.player));
+                });
+            }
+        });
+    }
+
+    function renderControlComodinAutista() {
+        const control = document.getElementById('comodin-autista-control');
+        const checkbox = document.getElementById('comodin-autista-checkbox');
+        const descripcion = document.getElementById('comodin-autista-description');
+        const estado = document.getElementById('comodin-autista-status');
+        if (!control || !checkbox) return;
+
+        const hayGordiSeleccionado = seleccionados.some(nombre => esGordi(nombre));
+        const hayGordiEnPartidaPendiente = partidaPendiente &&
+            [...equiposActuales.blue, ...equiposActuales.red].some(nombre => esGordi(nombre));
+        const visible = accesoPartida && (hayGordiSeleccionado || hayGordiEnPartidaPendiente);
+        control.style.display = visible ? 'flex' : 'none';
+        control.classList.toggle('active', comodinAutistaActivo);
+        checkbox.checked = comodinAutistaActivo;
+        checkbox.disabled = sorteoEnCurso;
+        if (descripcion) {
+            descripcion.textContent = comodinAplicaEnPartidaActual()
+                ? 'Activo en esta partida: Gordi no suma partida jugada, victoria, derrota personal, MVP ni estadísticas de campeones.'
+                : 'Actívalo antes del sorteo para que Gordi juegue la partida sin que el resultado afecte a sus estadísticas individuales.';
+        }
+        if (estado) estado.textContent = comodinAutistaActivo ? 'Activado' : 'Por partida';
+        actualizarBotonesMVPComodin();
+    }
+
+    function cambiarComodinAutista(activado) {
+        if (sorteoEnCurso) {
+            renderControlComodinAutista();
+            return;
+        }
+        const hayGordi = seleccionados.some(nombre => esGordi(nombre)) ||
+            (partidaPendiente && [...equiposActuales.blue, ...equiposActuales.red].some(nombre => esGordi(nombre)));
+        if (activado && !hayGordi) {
+            comodinAutistaActivo = false;
+            renderControlComodinAutista();
+            return;
+        }
+
+        comodinAutistaActivo = Boolean(activado);
+        if (comodinAplicaEnPartidaActual() && mvpActual) {
+            ['blue', 'red'].forEach(lado => {
+                if (!esGordi(mvpActual[lado])) return;
+                mvpActual[lado] = null;
+                mvpElegido[lado] = false;
+                document.querySelectorAll('#slots-' + lado + ' .mvp-button').forEach(boton => {
+                    boton.classList.remove('selected');
+                    boton.textContent = 'MVP';
+                    boton.disabled = esGordi(boton.dataset.player);
+                });
+            });
+        }
+        renderControlComodinAutista();
+    }
+
     function renderSelector() {
         const grid = document.getElementById('grid-jugadores');
         const bloqueado = sorteoEnCurso || partidaPendiente;
@@ -1423,6 +1539,7 @@
                 ${escaparHTML(name)}
             </div>
         `).join('');
+        renderControlComodinAutista();
     }
 
     function desbloquearPartida() {
@@ -1455,6 +1572,9 @@
         if (seleccionados.includes(name)) seleccionados = seleccionados.filter(n => n !== name);
         else if (seleccionados.length < 10) seleccionados.push(name);
         else return alert("Puedes seleccionar como máximo 10 jugadores.");
+        if (!seleccionados.some(nombre => esGordi(nombre)) && !partidaPendiente) {
+            comodinAutistaActivo = false;
+        }
         renderSelector();
     }
 
@@ -1514,6 +1634,7 @@
         } catch (error) {
             console.error('Error al generar la partida.', error);
             partidaPendiente = false;
+            comodinAutistaActivo = false;
             document.getElementById('winner-panel').style.display = 'none';
             alert("No se pudo generar la partida. Recarga la página e inténtalo de nuevo.");
         } finally {
@@ -1526,6 +1647,7 @@
     function registrarMVP(equipo, name, button) {
         if (!partidaPendiente || !['blue', 'red'].includes(equipo) || mvpElegido[equipo]) return;
         if (!equiposActuales[equipo].includes(name) || !db[name]) return;
+        if (comodinAplicaEnPartidaActual() && esGordi(name)) return;
 
         mvpElegido[equipo] = true;
         mvpActual[equipo] = name;
@@ -1546,19 +1668,27 @@
             return alert("No se puede registrar la partida porque falta un jugador en el ranking. Revisa los datos antes de continuar.");
         }
 
-        // Se cuentan los participantes del sorteo, no la selección que quede en pantalla.
+        const comodinUsado = typeof comodinAutistaActivo !== 'undefined' && comodinAutistaActivo && partidaPendiente
+            ? jugadoresDeLaPartida.find(name => String(name).trim().toLocaleLowerCase('es-ES') === 'gordi') || null
+            : null;
+
+        // El comodín elimina solo a Gordi de las estadísticas personales de esta partida.
         jugadoresDeLaPartida.forEach(name => {
+            if (comodinUsado && name === comodinUsado) return;
             db[name].games = enteroNoNegativo(db[name].games) + 1;
         });
 
-        // La victoria cuenta únicamente para el equipo ganador.
+        // La victoria del equipo sigue contando para todos salvo Gordi si usó el comodín.
         equiposActuales[equipo].forEach(name => {
+            if (comodinUsado && name === comodinUsado) return;
             db[name].w = enteroNoNegativo(db[name].w) + 1;
         });
 
         ['blue', 'red'].forEach(lado => {
             const mvp = mvpActual[lado];
-            if (mvp && db[mvp]) db[mvp].m = enteroNoNegativo(db[mvp].m) + 1;
+            if (mvp && db[mvp] && !(comodinUsado && mvp === comodinUsado)) {
+                db[mvp].m = enteroNoNegativo(db[mvp].m) + 1;
+            }
         });
 
         const partida = {
@@ -1577,17 +1707,20 @@
             })),
             ganador: equipo,
             perdedor: equipo === 'blue' ? 'red' : 'blue',
-            mvpBlue: mvpActual.blue,
-            mvpRed: mvpActual.red
+            comodinAutista: comodinUsado,
+            mvpBlue: comodinUsado && mvpActual.blue === comodinUsado ? null : mvpActual.blue,
+            mvpRed: comodinUsado && mvpActual.red === comodinUsado ? null : mvpActual.red
         };
 
         historialPartidas.unshift(partida);
         historialPartidas = historialPartidas.slice(0, 20);
 
         partidaPendiente = false;
+        comodinAutistaActivo = false;
         document.getElementById('winner-panel').style.display = 'none';
         actualizarInterfaz();
-        alert("Victoria registrada para el " + (equipo === 'blue' ? "EQUIPO AZUL." : "EQUIPO ROJO."));
+        alert("Victoria registrada para el " + (equipo === 'blue' ? "EQUIPO AZUL." : "EQUIPO ROJO.") +
+            (comodinUsado ? " Comodin de Autista aplicado a Gordi: la partida no suma ni resta estadísticas personales." : ""));
     }
 
 
@@ -1616,10 +1749,13 @@
                 const imageUrl = urlImagenCampeonSegura(player.image);
                 const nombre = escaparHTML(player.name || 'Jugador desconocido');
                 const campeon = escaparHTML(player.champion || 'Campeón no registrado');
+                const etiquetaComodin = estaJugadorExentoEnPartida(partida, player.name)
+                    ? '<span class="comodin-tag">Comodin de Autista</span>'
+                    : '';
                 return `
                     <div class="history-player">
                         ${imageUrl ? '<img src="' + escaparHTML(imageUrl) + '" alt="' + campeon + '" loading="lazy">' : ''}
-                        <div><strong>${nombre}</strong><small>${campeon}</small></div>
+                        <div><strong>${nombre}${etiquetaComodin}</strong><small>${campeon}</small></div>
                     </div>
                 `;
             }).join('');
@@ -1630,6 +1766,7 @@
                         <h3>PARTIDA #${historialPartidas.length - index}</h3>
                         <small>${escaparHTML(partida.fecha || 'Fecha desconocida')}</small>
                     </div>
+                    ${partida.comodinAutista ? '<div class="comodin-history-note">🃏 Comodin de Autista aplicado a Gordi. Esta partida se ha conservado en el historial, pero no modifica sus estadísticas personales.</div>' : ''}
                     <div class="history-team">
                         <div class="history-team-title blue"><span>●</span> EQUIPO AZUL</div>
                         <div class="history-players">${renderHistoryPlayers(blueData)}</div>

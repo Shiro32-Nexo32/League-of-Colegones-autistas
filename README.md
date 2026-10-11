@@ -5,6 +5,7 @@ Aplicación web estática para organizar partidas personalizadas de League of Le
 ## Funcionalidades
 
 - Interfaz responsive tipo dashboard con navegación compacta: Inicio, Historial, Estadísticas de jugadores, Análisis y Nueva partida.
+- Opción por partida «Comodin de Autista» para excluir a Gordi de sus propias estadísticas en esa partida, manteniendo el resultado para el resto del equipo.
 - Estadísticas de campeones por jugador basadas en las últimas 20 partidas conservadas.
 - Analista automático en formato chat: usa reglas y estadísticas locales, no un modelo de IA externo. El historial de ese chat se guarda solo en el navegador y no se sincroniza.
 
@@ -59,6 +60,7 @@ node scripts/test-champion-randomization.mjs
 node scripts/test-victory-registration.mjs
 node scripts/test-cloudflare-worker.mjs
 node scripts/test-player-statistics.mjs
+node scripts/test-comodin-autista.mjs
 ```
 
 GitHub Actions ejecuta estas comprobaciones cuando hay cambios en `main` o se abre una pull request hacia esa rama.
