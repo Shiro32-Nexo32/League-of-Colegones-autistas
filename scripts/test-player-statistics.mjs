@@ -46,6 +46,7 @@ const context = {
 
 const functions = [
     'datosJugadoresDePartida',
+    'estaJugadorExentoEnPartida',
     'obtenerEstadisticasRecientesJugador',
     'obtenerCampeonesGlobales',
     'normalizarPreguntaAnalisis',
