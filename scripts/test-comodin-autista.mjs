@@ -145,6 +145,8 @@ assert.equal(mvpActivado.context.mvpActual.blue, null, 'Un jugador con comodín 
 
 assert.match(html, /class="comodin-toggle-button" data-player=/,
     'Cada jugador de los equipos debe tener un cuadrado de payaso junto a su nombre.');
+assert.match(html, /esJugadorPermitidoComodin\(name\) \? '<button type="button" class="comodin-toggle-button"/,
+    'El cuadrado de payaso solo debe renderizarse para jugadores autorizados desde el editor.');
 assert.match(html, /slot-player-name"><b>\$\{escaparHTML\(name\)\}<\/b><button type="button" class="comodin-toggle-button"/,
     'El cuadrado de payaso debe estar al lado del nombre del jugador.');
 assert.match(html, /toggleComodinJugadorPartida\(botonComodin\.dataset\.player\)/,
