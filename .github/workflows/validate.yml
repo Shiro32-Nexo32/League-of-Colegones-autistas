@@ -29,6 +29,8 @@ jobs:
         run: node scripts/test-champion-randomization.mjs
       - name: Test victory registration and points
         run: node scripts/test-victory-registration.mjs
+      - name: Test shared KV polling frequency
+        run: node scripts/test-shared-kv-polling.mjs
       - name: Test Cloudflare shared-state Worker
         run: node scripts/test-cloudflare-worker.mjs
       - name: Test player statistics and local analysis
