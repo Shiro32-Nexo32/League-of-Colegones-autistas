@@ -872,6 +872,7 @@
     let sharedConflict = false;
     let pendingSharedState = null;
     let sharedSaveTimer = null;
+    let sharedQueryInFlight = false;
 
     function mostrarEstadoCompartido(message, type = 'info') {
         const status = document.getElementById('shared-sync-status');
@@ -969,6 +970,8 @@
     }
 
     async function consultarRankingCompartido() {
+        if (sharedQueryInFlight) return;
+        sharedQueryInFlight = true;
         try {
             const payload = await obtenerEstadoCompartido();
             sharedApiReachable = true;
@@ -1030,6 +1033,8 @@
                 mostrarEstadoCompartido('No se puede conectar al servidor compartido. El ranking funciona en modo local y no se sincroniza con otros dispositivos.', 'error');
             }
             console.warn('No se pudo consultar el ranking compartido.', error);
+        } finally {
+            sharedQueryInFlight = false;
         }
     }
 
@@ -1149,7 +1154,21 @@
     function iniciarSincronizacionCompartida() {
         mostrarEstadoCompartido('Conectando con el ranking compartido...', 'info');
         void consultarRankingCompartido();
-        setInterval(() => { void consultarRankingCompartido(); }, 15000);
+
+        // No consultar KV cada pocos segundos ni gastar lecturas con pestañas en segundo plano.
+        setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                void consultarRankingCompartido();
+            }
+        }, 60000);
+
+        // Al volver a la pestaña, recuperar cuanto antes los cambios de otros dispositivos.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                void consultarRankingCompartido();
+            }
+        });
+
         setTimeout(() => {
             if (!sharedStartupReady) {
                 sharedStartupReady = true;
