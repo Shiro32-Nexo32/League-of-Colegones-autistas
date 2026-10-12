@@ -149,7 +149,6 @@ assert.match(html, /esJugadorPermitidoComodin\(name\) \? '<button type="button" 
     'El cuadrado de payaso solo debe renderizarse para jugadores autorizados desde el editor.');
 assert.ok(html.includes('slot-player-name"><b>${escaparHTML(name)}</b>${esJugadorPermitidoComodin(name) ?'),
     'El emote debe estar junto al nombre, dentro de la condición de autorización del editor.');
-    'El cuadrado de payaso debe estar al lado del nombre del jugador.');
 assert.match(html, /toggleComodinJugadorPartida\(botonComodin\.dataset\.player\)/,
     'El clic del cuadrado debe alternar el comodín del jugador de esa línea.');
 assert.match(html, /Permiso para optar al comodín/);
