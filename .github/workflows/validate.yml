@@ -25,6 +25,8 @@ jobs:
         run: node scripts/test-team-randomization.mjs
       - name: Test Shiro position and soft champion sounds
         run: node scripts/test-shiro-position-and-sounds.mjs
+      - name: Test browser Doom button
+        run: node scripts/test-doom-button.mjs
       - name: Test champion uniqueness across the whole match
         run: node scripts/test-champion-randomization.mjs
       - name: Test victory registration and points
