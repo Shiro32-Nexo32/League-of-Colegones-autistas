@@ -19,7 +19,7 @@ const historialPartidas = [
         fecha: '12/10/2026, 19:00:00',
         blue: ['Shiro'], red: ['Ana'], ganador: 'blue', comodinAutista: ['Shiro'],
         blueData: [{ name: 'Shiro', champion: 'Yasuo', image: null }],
-        redData: [{ name: 'Ana', champion: 'Ahri', image: null }]
+        redData: [{ name: 'Ana', champion: 'Karma', image: null }]
     },
     {
         fecha: '12/10/2026, 18:00:00',
