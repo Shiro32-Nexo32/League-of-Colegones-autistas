@@ -75,6 +75,9 @@
     .nav-symbol { display: inline-grid; place-items: center; width: 25px; color: currentColor; font-size: 1.12rem; }
     .nav-link .nav-tail { margin-left: auto; width: 5px; height: 5px; border-radius: 50%; background: transparent; }
     .nav-link.active .nav-tail { background: var(--gold); box-shadow: 0 0 9px rgba(232,199,120,.8); }
+    .doom-nav-link { color: #ffe1e1; border: 1px solid rgba(245,80,80,.3); background: linear-gradient(100deg, rgba(110,20,30,.25), rgba(255,60,60,.055)); text-decoration: none; }
+    .doom-nav-link:hover { border-color: rgba(255,95,95,.55); background: rgba(145,29,39,.24); }
+    .doom-nav-link .doom-external { margin-left: auto; color: #ffadad; opacity: .78; font-size: .9rem; }
     .sidebar-bottom { margin-top: auto; padding-top: 20px; }
     .sidebar-note {
         padding: 12px; border: 1px solid var(--line); border-radius: 13px;
@@ -389,6 +392,7 @@
             <button type="button" class="nav-link" data-page="historial" onclick="navegarA('historial')"><span class="nav-symbol">◷</span><span>Historial de partidas</span><span class="nav-tail"></span></button>
             <button type="button" class="nav-link" data-page="jugadores" onclick="navegarA('jugadores')"><span class="nav-symbol">♙</span><span>Personajes</span><span class="nav-tail"></span></button>
             <button type="button" class="nav-link" data-page="analisis" onclick="navegarA('analisis')"><span class="nav-symbol">✧</span><span>Análisis del grupo</span><span class="nav-tail"></span></button>
+            <a class="nav-link doom-nav-link" href="https://danborden1.github.io/doom-web/" target="_blank" rel="noopener noreferrer" title="Doom para navegador con Chocolate Doom y Freedoom. Primera carga de unos 35 MB." aria-label="Jugar al Doom en una pestaña nueva"><span class="nav-symbol">🎮</span><span>Jugar al Doom</span><span class="doom-external" aria-hidden="true">↗</span></a>
         </nav>
         <div class="sidebar-bottom">
             <div class="sidebar-note"><strong>Clasificación SG</strong>El ranking y las estadísticas se actualizan automáticamente al registrar cada resultado.</div>
