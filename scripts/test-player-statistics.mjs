@@ -16,16 +16,25 @@ function getFunction(name) {
 
 const historialPartidas = [
     {
+        fecha: '12/10/2026, 19:00:00',
+        blue: ['Shiro'], red: ['Ana'], ganador: 'blue', comodinAutista: ['Shiro'],
+        blueData: [{ name: 'Shiro', champion: 'Yasuo', image: null }],
+        redData: [{ name: 'Ana', champion: 'Ahri', image: null }]
+    },
+    {
+        fecha: '12/10/2026, 18:00:00',
         blue: ['Shiro', 'Ana'], red: ['Maku'], ganador: 'blue',
         blueData: [{ name: 'Shiro', champion: 'Ahri', image: null }, { name: 'Ana', champion: 'Lux', image: null }],
         redData: [{ name: 'Maku', champion: 'Garen', image: null }]
     },
     {
+        fecha: '12/10/2026, 17:00:00',
         blue: ['Ana'], red: ['Shiro', 'Maku'], ganador: 'red',
         blueData: [{ name: 'Ana', champion: 'Garen', image: null }],
         redData: [{ name: 'Shiro', champion: 'Ahri', image: null }, { name: 'Maku', champion: 'Lux', image: null }]
     },
     {
+        fecha: '12/10/2026, 16:00:00',
         blue: ['Shiro'], red: ['Ana', 'Maku'], ganador: 'red',
         blueData: [{ name: 'Shiro', champion: 'Lux', image: null }],
         redData: [{ name: 'Ana', champion: 'Ahri', image: null }, { name: 'Maku', champion: 'Garen', image: null }]
@@ -68,11 +77,16 @@ context.document = { getElementById: id => id === 'player-stats-list' ? htmlCont
 runInNewContext(functions + '\nglobalThis.__stats = obtenerEstadisticasRecientesJugador("Shiro");\nglobalThis.__history = obtenerHistorialCampeonesJugador("Shiro");\nglobalThis.__champions = obtenerCampeonesGlobales();\nglobalThis.__leaderAnswer = generarRespuestaAnalisis("¿Quién va liderando?");\nglobalThis.__championAnswer = generarRespuestaAnalisis("¿Qué campeón ha dado más victorias?");\nglobalThis.__mvpAnswer = generarRespuestaAnalisis("¿Quién tiene más MVP?");\nrenderPlayerStats();', context);
 
 assert.equal(context.__stats.partidas, 3);
-assert.equal(context.__history.length, 3);
+assert.equal(context.__history.length, 3,
+    'Las partidas con comodín activo deben excluirse del historial individual de campeones.');
 assert.deepEqual(
-    Array.from(context.__history, entry => [entry.champion, entry.resultado, entry.lado]),
-    [['Ahri', 'Victoria', 'blue'], ['Ahri', 'Victoria', 'red'], ['Lux', 'Derrota', 'blue']],
-    'El historial debe enumerar los campeones jugados, con el resultado y el equipo, del más reciente al más antiguo.'
+    Array.from(context.__history, entry => [entry.champion, entry.resultado, entry.lado, entry.fecha]),
+    [
+        ['Ahri', 'Victoria', 'blue', '12/10/2026, 18:00:00'],
+        ['Ahri', 'Victoria', 'red', '12/10/2026, 17:00:00'],
+        ['Lux', 'Derrota', 'blue', '12/10/2026, 16:00:00']
+    ],
+    'El historial debe enumerar los campeones jugados, con la fecha, resultado y equipo, del más reciente al más antiguo.'
 );
 
 assert.equal(context.__stats.victorias, 2);
