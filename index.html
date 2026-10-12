@@ -200,7 +200,7 @@
     }
     .player-stat-card[open] { border-color: rgba(232,199,120,.27); }
     .player-stat-card summary {
-        display: grid; grid-template-columns: 35px minmax(130px, 1fr) repeat(3, minmax(70px, .28fr)) 20px;
+        display: grid; grid-template-columns: minmax(0, 1fr) 20px;
         align-items: center; gap: 12px; padding: 15px 17px; cursor: pointer; list-style: none;
     }
     .player-stat-card summary::-webkit-details-marker { display: none; }
@@ -213,17 +213,19 @@
     .summary-stat small { display: block; margin-top: 3px; color: #788da9; font-size: .63rem; text-transform: uppercase; letter-spacing: .08em; }
     .summary-chevron { color: #6f83a0; font-size: 1.1rem; transition: transform .2s ease; }
     .player-stat-card[open] .summary-chevron { transform: rotate(180deg); }
-    .player-stat-details { padding: 0 17px 18px 64px; }
-    .player-stat-detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 9px; }
-    .detail-tile { padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.025); min-width: 0; }
-    .detail-tile span { display: block; color: #8ba0bd; font-size: .69rem; }
-    .detail-tile strong { display: block; margin-top: 7px; color: #edf4ff; font-size: 1rem; overflow-wrap: anywhere; }
-    .detail-tile small { display: block; margin-top: 4px; color: #7186a4; line-height: 1.45; font-size: .65rem; }
-    .champion-insight { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-    .champion-chip { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.025); }
-    .champion-chip img { width: 35px; height: 35px; border-radius: 8px; }
-    .champion-chip strong { display: block; font-size: .77rem; color: #eaf1fd; }
-    .champion-chip small { display: block; margin-top: 3px; color: var(--muted); font-size: .66rem; }
+    .player-stat-details { padding: 0 17px 16px; }
+    .champion-history-list { display: grid; gap: 8px; }
+    .champion-history-entry { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.025); }
+    .champion-history-entry img, .champion-history-placeholder { flex: 0 0 42px; width: 42px; height: 42px; border-radius: 9px; }
+    .champion-history-entry img { object-fit: cover; border: 1px solid var(--line); }
+    .champion-history-placeholder { display: grid; place-items: center; color: #91a4be; background: rgba(255,255,255,.05); }
+    .champion-history-main { flex: 1; min-width: 0; }
+    .champion-history-main strong { display: block; color: #eaf1fd; font-size: .83rem; }
+    .champion-history-main small { display: block; margin-top: 4px; color: var(--muted); font-size: .68rem; line-height: 1.4; }
+    .champion-history-result { flex: 0 0 auto; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: .66rem; font-weight: 800; }
+    .champion-history-result.win { color: var(--green); border-color: rgba(121,221,181,.2); background: rgba(121,221,181,.06); }
+    .champion-history-result.loss { color: #ffb4b9; border-color: rgba(255,110,120,.2); background: rgba(255,110,120,.06); }
+    .champion-history-empty { padding: 15px; border: 1px dashed var(--line); border-radius: 11px; color: var(--muted); font-size: .78rem; text-align: center; }
     .analysis-summary { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 11px; margin: 20px 0 15px; }
     .analysis-layout { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(240px,.8fr); gap: 15px; align-items: start; }
     .chat-card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(15,28,47,.96); }
@@ -351,14 +353,11 @@
         .ranking-table td { padding: 12px 10px; }
         .section-head { align-items: flex-start; }
         .section-tag { display: none; }
-        .player-stat-card summary { grid-template-columns: 30px minmax(100px,1fr) 48px 18px; gap: 8px; padding: 12px; }
-        .stat-rank { width: 28px; height: 28px; }
-        .summary-stat { display: none; }
-        .summary-stat.primary { display: block; }
+        .player-stat-card summary { grid-template-columns: minmax(0,1fr) 18px; gap: 8px; padding: 12px; }
         .player-stat-details { padding: 0 12px 14px; }
-        .player-stat-detail-grid { gap: 7px; }
-        .detail-tile { padding: 10px; }
-        .detail-tile strong { font-size: .9rem; }
+        .champion-history-entry { gap: 8px; padding: 8px; }
+        .champion-history-entry img, .champion-history-placeholder { flex-basis: 36px; width: 36px; height: 36px; }
+        .champion-history-result { padding: 4px 6px; font-size: .61rem; }
         .analysis-summary { gap: 8px; }
         .chat-card { padding: 13px; }
         .analysis-chat { max-height: 370px; }
@@ -388,7 +387,7 @@
         <nav class="side-nav" aria-label="Navegación principal">
             <button type="button" class="nav-link active" data-page="inicio" onclick="navegarA('inicio')"><span class="nav-symbol">⌂</span><span>Inicio</span><span class="nav-tail"></span></button>
             <button type="button" class="nav-link" data-page="historial" onclick="navegarA('historial')"><span class="nav-symbol">◷</span><span>Historial de partidas</span><span class="nav-tail"></span></button>
-            <button type="button" class="nav-link" data-page="jugadores" onclick="navegarA('jugadores')"><span class="nav-symbol">♙</span><span>Estadísticas de jugadores</span><span class="nav-tail"></span></button>
+            <button type="button" class="nav-link" data-page="jugadores" onclick="navegarA('jugadores')"><span class="nav-symbol">♙</span><span>Personajes</span><span class="nav-tail"></span></button>
             <button type="button" class="nav-link" data-page="analisis" onclick="navegarA('analisis')"><span class="nav-symbol">✧</span><span>Análisis del grupo</span><span class="nav-tail"></span></button>
         </nav>
         <div class="sidebar-bottom">
@@ -451,8 +450,8 @@
 
             <section id="view-jugadores" class="page-view">
                 <div class="page-intro">
-                    <h2>Estadísticas de jugadores</h2>
-                    <p>Abre un jugador para ver sus números, los campeones que más le han tocado y con cuáles ha ganado más. Los datos de campeones se calculan con las últimas 20 partidas guardadas.</p>
+                    <h2>Historial de campeones por jugador</h2>
+                    <p>Abre cada jugador para consultar los campeones que ha utilizado, de la partida más reciente a la más antigua. Solo se muestran las últimas 20 partidas registradas y se omiten las partidas en las que se activó el comodín.</p>
                 </div>
                 <div id="player-stats-list" class="player-stats-list"></div>
             </section>
@@ -1338,44 +1337,75 @@
         };
     }
 
+    function obtenerHistorialCampeonesJugador(nombre) {
+        const historial = [];
+        historialPartidas.forEach(partida => {
+            if (estaJugadorExentoEnPartida(partida, nombre)) return;
+
+            const azul = datosJugadoresDePartida(partida, 'blue');
+            const rojo = datosJugadoresDePartida(partida, 'red');
+            const jugadorAzul = azul.find(jugador => jugador.name === nombre);
+            const jugadorRojo = rojo.find(jugador => jugador.name === nombre);
+            const lado = jugadorAzul ? 'blue' : (jugadorRojo ? 'red' : null);
+            if (!lado) return;
+
+            const jugador = lado === 'blue' ? jugadorAzul : jugadorRojo;
+            if (!jugador.champion) return;
+
+            const gano = partida.ganador === lado;
+            historial.push({
+                champion: jugador.champion,
+                image: jugador.image,
+                fecha: typeof partida.fecha === 'string' && partida.fecha.trim()
+                    ? partida.fecha.trim()
+                    : 'Fecha desconocida',
+                lado,
+                resultado: gano ? 'Victoria' : 'Derrota',
+                gano
+            });
+        });
+        return historial;
+    }
+
     function renderPlayerStats() {
         const container = document.getElementById('player-stats-list');
         if (!container) return;
-        const ranking = obtenerRankingOrdenado();
-        if (!ranking.length) {
+        const nombres = Object.keys(db).sort((a, b) => a.localeCompare(b, 'es-ES'));
+        if (!nombres.length) {
             container.innerHTML = '<div class="panel empty-state">Todavía no hay jugadores en el ranking.</div>';
             return;
         }
-        container.innerHTML = ranking.map((jugador, indice) => {
-            const recientes = obtenerEstadisticasRecientesJugador(jugador.name);
-            const mejorJugado = recientes.masJugado;
-            const mejorVictorias = recientes.masVictorias;
-            const chip = (campeon, etiqueta, subtitulo) => {
-                if (!campeon) return '';
-                const imagen = campeon.image ? '<img src="' + escaparHTML(campeon.image) + '" alt="' + escaparHTML(campeon.name) + '" loading="lazy">' : '';
-                return '<div class="champion-chip">' + imagen + '<div><strong>' + escaparHTML(etiqueta) + ': ' + escaparHTML(campeon.name) + '</strong><small>' + escaparHTML(subtitulo) + '</small></div></div>';
-            };
+
+        container.innerHTML = nombres.map(nombre => {
+            const historial = obtenerHistorialCampeonesJugador(nombre);
+            const campeonesDistintos = new Set(historial.map(partida => partida.champion)).size;
+            const entradas = historial.length
+                ? historial.map(partida => {
+                    const imagen = partida.image
+                        ? '<img src="' + escaparHTML(partida.image) + '" alt="' + escaparHTML(partida.champion) + '" loading="lazy">'
+                        : '<span class="champion-history-placeholder" aria-hidden="true">⚔</span>';
+                    const lado = partida.lado === 'blue' ? 'Equipo azul' : 'Equipo rojo';
+                    return `
+                        <article class="champion-history-entry">
+                            ${imagen}
+                            <div class="champion-history-main">
+                                <strong>${escaparHTML(partida.champion)}</strong>
+                                <small>${escaparHTML(partida.fecha)} · ${lado}</small>
+                            </div>
+                            <span class="champion-history-result ${partida.gano ? 'win' : 'loss'}">${partida.resultado}</span>
+                        </article>
+                    `;
+                }).join('')
+                : '<div class="champion-history-empty">Todavía no hay campeones registrados para este jugador.</div>';
+
             return `
                 <details class="player-stat-card">
                     <summary>
-                        <span class="stat-rank">${indice + 1}</span>
-                        <span class="stat-player-name">${escaparHTML(jugador.name)}<span class="stat-player-meta">${escaparHTML(jugador.pts)} puntos · ${escaparHTML(jugador.games)} partidas</span></span>
-                        <span class="summary-stat primary"><strong>${jugador.winRate.toFixed(1)}%</strong><small>Win rate</small></span>
-                        <span class="summary-stat"><strong>${escaparHTML(jugador.w)}</strong><small>Victorias</small></span>
-                        <span class="summary-stat"><strong>${escaparHTML(jugador.m)}</strong><small>MVP</small></span>
+                        <span class="stat-player-name">${escaparHTML(nombre)}<span class="stat-player-meta">${campeonesDistintos} campeones distintos · ${historial.length} selecciones registradas</span></span>
                         <span class="summary-chevron">⌄</span>
                     </summary>
                     <div class="player-stat-details">
-                        <div class="player-stat-detail-grid">
-                            <div class="detail-tile"><span>Victorias acumuladas</span><strong>${escaparHTML(jugador.w)}</strong><small>En el ranking completo</small></div>
-                            <div class="detail-tile"><span>Win rate acumulado</span><strong>${jugador.winRate.toFixed(1)}%</strong><small>Victorias / partidas del ranking</small></div>
-                            <div class="detail-tile"><span>Partidas en historial</span><strong>${recientes.partidas}</strong><small>De las últimas 20 guardadas</small></div>
-                            <div class="detail-tile"><span>Win rate reciente</span><strong>${recientes.winRate.toFixed(1)}%</strong><small>Con ${recientes.victorias} victorias en el historial disponible</small></div>
-                        </div>
-                        <div class="champion-insight">
-                            ${chip(mejorJugado, 'Más jugado', mejorJugado ? mejorJugado.played + ' aparición(es) en el historial' : 'Sin datos de campeones')}
-                            ${chip(mejorVictorias, 'Más victorias', mejorVictorias ? mejorVictorias.wins + ' victoria(s) en ' + mejorVictorias.played + ' partida(s)' : 'Aún no hay victorias asociadas a campeones')}
-                        </div>
+                        <div class="champion-history-list">${entradas}</div>
                     </div>
                 </details>
             `;
@@ -1535,7 +1565,7 @@
         const titulos = {
             inicio: ['SG · TABLERO DEL GRUPO', 'Inicio'],
             historial: ['REGISTRO DE LA GRIETA', 'Historial de partidas'],
-            jugadores: ['RANKING INDIVIDUAL', 'Estadísticas de jugadores'],
+            jugadores: ['HISTORIAL DE CAMPEONES', 'Personajes'],
             analisis: ['LECTURA DEL GRUPO', 'Análisis del grupo'],
             partida: ['SG · MODO DE JUEGO', 'Nueva partida']
         };
@@ -1931,7 +1961,7 @@
             const slot = document.createElement('div');
             slot.className = 'slot visible';
             const equipo = containerId.replace("slots-", "");
-            slot.innerHTML = `<img src="" alt="" style="filter:grayscale(1)"> <div class="slot-player-info"><div class="slot-player-name"><b>${escaparHTML(name)}</b><button type="button" class="comodin-toggle-button" data-player="${escaparHTML(name)}" aria-label="Activar comodín" aria-pressed="false" title="Activar comodín" disabled>🤡</button></div><small class="champ-name">...</small></div><button type="button" class="champion-remake-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" aria-label="Volver a sortear el campeón de ${escaparHTML(name)}" title="Cambiar solo este campeón" disabled>↻ CHAMP</button><button class="mvp-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" disabled>MVP</button>`;
+            slot.innerHTML = `<img src="" alt="" style="filter:grayscale(1)"> <div class="slot-player-info"><div class="slot-player-name"><b>${escaparHTML(name)}</b>${esJugadorPermitidoComodin(name) ? '<button type="button" class="comodin-toggle-button" data-player="' + escaparHTML(name) + '" aria-label="Activar comodín" aria-pressed="false" title="Activar comodín" disabled>🤡</button>' : ''}</div><small class="champ-name">...</small></div><button type="button" class="champion-remake-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" aria-label="Volver a sortear el campeón de ${escaparHTML(name)}" title="Cambiar solo este campeón" disabled>↻ CHAMP</button><button class="mvp-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" disabled>MVP</button>`;
             container.appendChild(slot);
             const img = slot.querySelector('img');
             const txt = slot.querySelector('.champ-name');
