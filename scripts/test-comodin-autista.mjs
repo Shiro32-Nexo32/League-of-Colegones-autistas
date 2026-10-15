@@ -180,7 +180,7 @@ const estadoBotones = {
         }
     }
 };
-runInNewContext(updateSource + '\\nglobalThis.__updateButtons = actualizarBotonesMVPComodin;', estadoBotones);
+runInNewContext(updateSource + '\nglobalThis.__updateButtons = actualizarBotonesMVPComodin;', estadoBotones);
 estadoBotones.__updateButtons();
 assert.equal(botonPrueba.disabled, false,
     'La casilla debe activarse al terminar el sorteo cuando hay una partida pendiente.');
