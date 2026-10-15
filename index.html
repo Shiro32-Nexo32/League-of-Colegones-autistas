@@ -1636,7 +1636,7 @@
                 boton.setAttribute('aria-pressed', String(activo));
                 boton.title = activo ? 'Desactivar comodín' : 'Activar comodín';
                 boton.setAttribute('aria-label', activo ? 'Desactivar comodín' : 'Activar comodín');
-                boton.disabled = !partidaPendiente;
+                boton.disabled = !partidaPendiente || sorteoEnCurso;
             });
         });
     }
@@ -1778,6 +1778,8 @@
             sorteoEnCurso = false;
             botonSorteo.disabled = false;
             renderSelector();
+            // Las casillas se habilitan solo cuando el sorteo ya ha terminado.
+            actualizarBotonesMVPComodin();
         }
     }
 
@@ -1968,7 +1970,7 @@
             const slot = document.createElement('div');
             slot.className = 'slot visible';
             const equipo = containerId.replace("slots-", "");
-            slot.innerHTML = `<img src="" alt="" style="filter:grayscale(1)"> <div class="slot-player-info"><div class="slot-player-name"><b>${escaparHTML(name)}</b>${esJugadorPermitidoComodin(name) ? '<button type="button" class="comodin-toggle-button" data-player="' + escaparHTML(name) + '" aria-label="Activar comodín" aria-pressed="false" title="Activar comodín" disabled>🤡</button>' : ''}</div><small class="champ-name">...</small></div><button type="button" class="champion-remake-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" aria-label="Volver a sortear el campeón de ${escaparHTML(name)}" title="Cambiar solo este campeón" disabled>↻ CHAMP</button><button class="mvp-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" disabled>MVP</button>`;
+            slot.innerHTML = `<img src="" alt="" style="filter:grayscale(1)"> <div class="slot-player-info"><div class="slot-player-name"><b>${escaparHTML(name)}</b>${esJugadorPermitidoComodin(name) ? '<button type="button" class="comodin-toggle-button" data-player="' + escaparHTML(name) + '" onclick="toggleComodinJugadorPartida(this.dataset.player)" aria-label="Activar comodín" aria-pressed="false" title="Activar comodín" disabled>🤡</button>' : ''}</div><small class="champ-name">...</small></div><button type="button" class="champion-remake-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" aria-label="Volver a sortear el campeón de ${escaparHTML(name)}" title="Cambiar solo este campeón" disabled>↻ CHAMP</button><button class="mvp-button" data-equipo="${equipo}" data-player="${escaparHTML(name)}" disabled>MVP</button>`;
             container.appendChild(slot);
             const img = slot.querySelector('img');
             const txt = slot.querySelector('.champ-name');
@@ -2201,11 +2203,6 @@
 
         ['blue', 'red'].forEach(equipo => {
             document.getElementById('slots-' + equipo).addEventListener('click', event => {
-                const botonComodin = event.target.closest('.comodin-toggle-button');
-                if (botonComodin) {
-                    toggleComodinJugadorPartida(botonComodin.dataset.player);
-                    return;
-                }
                 const botonRemakeCampeon = event.target.closest('.champion-remake-button');
                 if (botonRemakeCampeon) {
                     remakeCampeon(botonRemakeCampeon.dataset.equipo, botonRemakeCampeon.dataset.player);

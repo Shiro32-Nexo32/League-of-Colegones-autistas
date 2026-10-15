@@ -149,8 +149,50 @@ assert.match(html, /esJugadorPermitidoComodin\(name\) \? '<button type="button" 
     'El cuadrado de payaso solo debe renderizarse para jugadores autorizados desde el editor.');
 assert.ok(html.includes('slot-player-name"><b>${escaparHTML(name)}</b>${esJugadorPermitidoComodin(name) ?'),
     'El emote debe estar junto al nombre, dentro de la condición de autorización del editor.');
-assert.match(html, /toggleComodinJugadorPartida\(botonComodin\.dataset\.player\)/,
-    'El clic del cuadrado debe alternar el comodín del jugador de esa línea.');
+assert.match(html, /onclick="toggleComodinJugadorPartida\(this\.dataset\.player\)"/,
+    'El cuadrado debe llamar directamente a la función al pulsarlo.');
+assert.doesNotMatch(html, /const botonComodin = event\.target\.closest\('\.comodin-toggle-button'\)/,
+    'No debe quedar un segundo manejador que alterne el comodín dos veces.');
+
+const updateStart = html.indexOf('    function actualizarBotonesMVPComodin() {');
+const updateEnd = html.indexOf('    function toggleComodinJugadorPartida(nombre)', updateStart);
+assert.notEqual(updateStart, -1, 'No se encontró el actualizador de botones del comodín.');
+assert.notEqual(updateEnd, -1, 'No se encontró el final del actualizador de botones.');
+const updateSource = html.slice(updateStart, updateEnd);
+const botonPrueba = {
+    dataset: { player: 'Ana' },
+    disabled: true,
+    classList: { toggle() {} },
+    setAttribute() {},
+    title: '',
+    innerText: ''
+};
+const estadoBotones = {
+    partidaPendiente: true,
+    sorteoEnCurso: false,
+    mvpElegido: { blue: false, red: false },
+    mvpActual: { blue: null, red: null },
+    comodinesActivosPartida: [],
+    comodinAplicaEnPartidaActual: () => false,
+    document: {
+        querySelectorAll(selector) {
+            return selector.endsWith('.mvp-button') ? [] : [botonPrueba];
+        }
+    }
+};
+runInNewContext(updateSource + '\nglobalThis.__updateButtons = actualizarBotonesMVPComodin;', estadoBotones);
+estadoBotones.__updateButtons();
+assert.equal(botonPrueba.disabled, false,
+    'La casilla debe activarse al terminar el sorteo cuando hay una partida pendiente.');
+estadoBotones.sorteoEnCurso = true;
+estadoBotones.__updateButtons();
+assert.equal(botonPrueba.disabled, true,
+    'La casilla debe permanecer desactivada mientras se realiza el sorteo.');
+estadoBotones.sorteoEnCurso = false;
+estadoBotones.partidaPendiente = false;
+estadoBotones.__updateButtons();
+assert.equal(botonPrueba.disabled, true,
+    'La casilla debe desactivarse al terminar o descartar la partida.');
 assert.match(html, /Permiso para optar al comodín/);
 assert.doesNotMatch(html, /function gestionarComodinPartida\(\)/,
     'No debe quedar el antiguo método que pedía escribir un nombre.');
